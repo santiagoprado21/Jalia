@@ -7,6 +7,9 @@ import Dashboard from "@/pages/Dashboard";
 import Ingredientes from "@/pages/Ingredientes";
 import NuevaReceta from "@/pages/NuevaReceta";
 import RecetaDetalle from "@/pages/RecetaDetalle";
+import Cotizaciones from "@/pages/Cotizaciones";
+import NuevaCotizacion from "@/pages/NuevaCotizacion";
+import CotizacionDetalle from "@/pages/CotizacionDetalle";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -19,6 +22,9 @@ function Router() {
         <Route path="/ingredientes" component={Ingredientes} />
         <Route path="/nueva-receta" component={NuevaReceta} />
         <Route path="/receta/:id" component={RecetaDetalle} />
+        <Route path="/cotizaciones" component={Cotizaciones} />
+        <Route path="/nueva-cotizacion" component={NuevaCotizacion} />
+        <Route path="/cotizacion/:id" component={CotizacionDetalle} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

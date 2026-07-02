@@ -1,5 +1,5 @@
 import { useLocalStorage } from "./use-local-storage";
-import type { Ingrediente, Receta, CalcReceta } from "@/types";
+import type { Ingrediente, Receta, CalcReceta, Cotizacion } from "@/types";
 
 export function useIngredientes() {
   const [ingredientes, setIngredientes] = useLocalStorage<Ingrediente[]>("postres_ingredientes", []);
@@ -59,6 +59,38 @@ export function useRecetas() {
   }
 
   return { recetas, agregarReceta, actualizarReceta, eliminarReceta, getReceta };
+}
+
+export function useCotizaciones() {
+  const [cotizaciones, setCotizaciones] = useLocalStorage<Cotizacion[]>("postres_cotizaciones", []);
+
+  function agregarCotizacion(data: Omit<Cotizacion, "id" | "fechaCreacion">) {
+    const nueva: Cotizacion = {
+      ...data,
+      id: crypto.randomUUID(),
+      fechaCreacion: new Date().toISOString(),
+    };
+    setCotizaciones((prev) => [...prev, nueva]);
+    return nueva;
+  }
+
+  function actualizarCotizacion(id: string, data: Partial<Omit<Cotizacion, "id" | "fechaCreacion">>) {
+    setCotizaciones((prev) => prev.map((c) => (c.id === id ? { ...c, ...data } : c)));
+  }
+
+  function cambiarEstado(id: string, estado: Cotizacion["estado"]) {
+    setCotizaciones((prev) => prev.map((c) => (c.id === id ? { ...c, estado } : c)));
+  }
+
+  function eliminarCotizacion(id: string) {
+    setCotizaciones((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  function getCotizacion(id: string) {
+    return cotizaciones.find((c) => c.id === id);
+  }
+
+  return { cotizaciones, agregarCotizacion, actualizarCotizacion, cambiarEstado, eliminarCotizacion, getCotizacion };
 }
 
 export function calcularPrecio(receta: Receta, ingredientes: Ingrediente[]): CalcReceta {

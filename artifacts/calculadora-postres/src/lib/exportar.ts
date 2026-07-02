@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import type { Receta, Ingrediente } from "@/types";
+import type { Receta, Ingrediente, Cotizacion } from "@/types";
 import { calcularPrecio } from "@/hooks/use-data";
 
 const NEGOCIO = "JALIA";
@@ -114,4 +114,142 @@ export function exportarExcel(recetas: Receta[], ingredientes: Ingrediente[]) {
   XLSX.utils.book_append_sheet(libro, hoja, "Precios JALIA");
 
   XLSX.writeFile(libro, `JALIA_precios_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+export function exportarCotizacionPDF(
+  cotizacion: Cotizacion,
+  recetas: Receta[],
+  ingredientes: Ingrediente[]
+) {
+  const doc = new jsPDF();
+
+  const fechaCreacion = new Date(cotizacion.fechaCreacion).toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+  const fechaEntrega = cotizacion.fechaEntrega
+    ? new Date(cotizacion.fechaEntrega + "T12:00:00").toLocaleDateString("es-MX", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
+
+  // Header
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(24);
+  doc.setTextColor(60, 25, 10);
+  doc.text(NEGOCIO, 14, 22);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(120, 80, 60);
+  doc.text("Cotizacion de pedido", 14, 30);
+
+  doc.setFontSize(9);
+  doc.setTextColor(160, 130, 110);
+  doc.text(`Fecha: ${fechaCreacion}`, 14, 37);
+
+  // Client box
+  doc.setDrawColor(220, 195, 175);
+  doc.setFillColor(255, 248, 240);
+  doc.roundedRect(14, 44, 182, fechaEntrega || cotizacion.notas ? 34 : 18, 3, 3, "FD");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(60, 25, 10);
+  doc.text("Cliente:", 18, 52);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(40, 20, 10);
+  doc.text(cotizacion.nombreCliente, 38, 52);
+
+  if (cotizacion.telefono) {
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(60, 25, 10);
+    doc.text("Tel:", 100, 52);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(40, 20, 10);
+    doc.text(cotizacion.telefono, 112, 52);
+  }
+
+  let infoY = 59;
+  if (fechaEntrega) {
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(60, 25, 10);
+    doc.text("Entrega:", 18, infoY);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(40, 20, 10);
+    doc.text(fechaEntrega, 40, infoY);
+    infoY += 7;
+  }
+
+  if (cotizacion.notas) {
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(60, 25, 10);
+    doc.text("Notas:", 18, infoY);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(40, 20, 10);
+    const notasLines = doc.splitTextToSize(cotizacion.notas, 145);
+    doc.text(notasLines, 40, infoY);
+  }
+
+  const startY = fechaEntrega || cotizacion.notas ? 84 : 70;
+
+  // Items table
+  const rows = cotizacion.items.map((item) => {
+    const receta = recetas.find((r) => r.id === item.recetaId);
+    if (!receta) return ["Postre no disponible", item.cantidad.toString(), "-", "-"];
+    const calc = calcularPrecio(receta, ingredientes);
+    return [
+      receta.nombre,
+      item.cantidad.toString(),
+      formatMXN(calc.precioVentaSugerido),
+      formatMXN(calc.precioVentaSugerido * item.cantidad),
+    ];
+  });
+
+  const total = cotizacion.items.reduce((sum, item) => {
+    const receta = recetas.find((r) => r.id === item.recetaId);
+    if (!receta) return sum;
+    const calc = calcularPrecio(receta, ingredientes);
+    return sum + calc.precioVentaSugerido * item.cantidad;
+  }, 0);
+
+  autoTable(doc, {
+    startY,
+    head: [["Postre", "Cantidad", "Precio unitario", "Subtotal"]],
+    body: rows,
+    foot: [["", "", "TOTAL", formatMXN(total)]],
+    headStyles: {
+      fillColor: [60, 25, 10],
+      textColor: [255, 248, 240],
+      fontStyle: "bold",
+      fontSize: 9,
+    },
+    bodyStyles: { fontSize: 9, textColor: [40, 20, 10] },
+    footStyles: {
+      fillColor: [255, 240, 225],
+      textColor: [60, 25, 10],
+      fontStyle: "bold",
+      fontSize: 10,
+    },
+    alternateRowStyles: { fillColor: [255, 250, 245] },
+    columnStyles: {
+      0: { cellWidth: "auto" },
+      1: { halign: "center", cellWidth: 25 },
+      2: { halign: "right", cellWidth: 38 },
+      3: { halign: "right", cellWidth: 38 },
+    },
+    styles: { cellPadding: 4 },
+  });
+
+  // Footer
+  const pageH = doc.internal.pageSize.height;
+  doc.setFontSize(8);
+  doc.setTextColor(180, 150, 130);
+  doc.text(`${NEGOCIO} — gracias por tu preferencia`, 14, pageH - 10);
+
+  doc.save(`JALIA_cotizacion_${cotizacion.nombreCliente.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`);
 }

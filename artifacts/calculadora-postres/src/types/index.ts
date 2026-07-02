@@ -31,6 +31,28 @@ export interface CalcReceta {
   gananciaTotal: number;
 }
 
+export interface ItemCotizacion {
+  recetaId: string;
+  cantidad: number;
+}
+
+export interface Cotizacion {
+  id: string;
+  nombreCliente: string;
+  telefono?: string;
+  fechaEntrega?: string;
+  notas?: string;
+  items: ItemCotizacion[];
+  estado: "pendiente" | "confirmado" | "entregado";
+  fechaCreacion: string;
+}
+
+export const ESTADOS_COTIZACION: { value: Cotizacion["estado"]; label: string; color: string }[] = [
+  { value: "pendiente", label: "Pendiente", color: "bg-yellow-100 text-yellow-700" },
+  { value: "confirmado", label: "Confirmado", color: "bg-green-100 text-green-700" },
+  { value: "entregado", label: "Entregado", color: "bg-blue-100 text-blue-700" },
+];
+
 export const CATEGORIAS = [
   "Pasteles",
   "Cupcakes",
