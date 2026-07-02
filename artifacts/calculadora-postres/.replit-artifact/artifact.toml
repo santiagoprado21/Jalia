@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Calculadora de Postres"
+version = "1.0.0"
+id = "artifacts/calculadora-postres"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24881
+
+[services.development]
+run = "pnpm --filter @workspace/calculadora-postres run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/calculadora-postres", "run", "build" ]
+publicDir = "artifacts/calculadora-postres/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24881"
+BASE_PATH = "/"
