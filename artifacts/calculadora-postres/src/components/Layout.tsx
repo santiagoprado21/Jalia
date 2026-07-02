@@ -19,8 +19,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2">
             <ChefHat className="w-6 h-6 text-primary" />
             <div>
-              <h1 className="font-serif text-lg font-bold text-foreground leading-tight">
-                Mis Postres
+              <h1 className="font-serif text-lg font-bold text-foreground leading-tight tracking-wide">
+                JALIA
               </h1>
               <p className="text-xs text-muted-foreground">Calculadora de precios</p>
             </div>

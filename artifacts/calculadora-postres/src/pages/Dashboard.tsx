@@ -1,11 +1,11 @@
+import { useState } from "react";
 import { Link } from "wouter";
-import { PlusCircle, TrendingUp, DollarSign, Package } from "lucide-react";
+import { PlusCircle, TrendingUp, DollarSign, Package, FileDown, FileSpreadsheet } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
-import { CATEGORIAS } from "@/types";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { exportarPDF, exportarExcel } from "@/lib/exportar";
 
 const categoryColors: Record<string, string> = {
   Pasteles: "bg-rose-100 text-rose-700",
@@ -22,6 +22,7 @@ const categoryColors: Record<string, string> = {
 export default function Dashboard() {
   const { recetas } = useRecetas();
   const { ingredientes } = useIngredientes();
+  const [exportando, setExportando] = useState<"pdf" | "excel" | null>(null);
 
   const recetasConCalculo = recetas.map((r) => ({
     receta: r,
@@ -30,6 +31,22 @@ export default function Dashboard() {
 
   const formatMXN = (n: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
+
+  function handleExportPDF() {
+    setExportando("pdf");
+    setTimeout(() => {
+      exportarPDF(recetas, ingredientes);
+      setExportando(null);
+    }, 100);
+  }
+
+  function handleExportExcel() {
+    setExportando("excel");
+    setTimeout(() => {
+      exportarExcel(recetas, ingredientes);
+      setExportando(null);
+    }, 100);
+  }
 
   return (
     <div>
@@ -43,12 +60,40 @@ export default function Dashboard() {
               : `${recetas.length} receta${recetas.length !== 1 ? "s" : ""} guardada${recetas.length !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <Link href="/nueva-receta">
-          <Button data-testid="button-nueva-receta" className="gap-2">
-            <PlusCircle className="w-4 h-4" />
-            Nueva Receta
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {recetas.length > 0 && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportExcel}
+                disabled={exportando === "excel"}
+                data-testid="button-exportar-excel"
+                className="gap-2"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                {exportando === "excel" ? "Exportando..." : "Excel"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportPDF}
+                disabled={exportando === "pdf"}
+                data-testid="button-exportar-pdf"
+                className="gap-2"
+              >
+                <FileDown className="w-4 h-4" />
+                {exportando === "pdf" ? "Generando..." : "PDF"}
+              </Button>
+            </>
+          )}
+          <Link href="/nueva-receta">
+            <Button data-testid="button-nueva-receta" className="gap-2">
+              <PlusCircle className="w-4 h-4" />
+              Nueva Receta
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Summary stats */}
