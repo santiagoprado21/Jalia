@@ -53,6 +53,21 @@ export const ESTADOS_COTIZACION: { value: Cotizacion["estado"]; label: string; c
   { value: "entregado", label: "Entregado", color: "bg-blue-100 text-blue-700" },
 ];
 
+export interface ItemVenta {
+  recetaId: string;
+  cantidad: number;
+  precioVenta: number;
+}
+
+export interface VentaDiaria {
+  id: string;
+  fecha: string;
+  items: ItemVenta[];
+  notas?: string;
+}
+
+export const DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+
 export const CATEGORIAS = [
   "Pasteles",
   "Cupcakes",

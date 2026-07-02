@@ -1,10 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { LayoutGrid, Package, PlusCircle, ChefHat, FileText } from "lucide-react";
+import { LayoutGrid, Package, PlusCircle, ChefHat, FileText, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "Mis Recetas", icon: LayoutGrid },
   { href: "/cotizaciones", label: "Cotizaciones", icon: FileText },
+  { href: "/caja", label: "Cuadre de Caja", icon: Calculator },
   { href: "/ingredientes", label: "Ingredientes", icon: Package },
   { href: "/nueva-receta", label: "Nueva Receta", icon: PlusCircle },
 ];

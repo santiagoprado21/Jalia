@@ -10,6 +10,8 @@ import RecetaDetalle from "@/pages/RecetaDetalle";
 import Cotizaciones from "@/pages/Cotizaciones";
 import NuevaCotizacion from "@/pages/NuevaCotizacion";
 import CotizacionDetalle from "@/pages/CotizacionDetalle";
+import CuadreCaja from "@/pages/CuadreCaja";
+import RegistrarVenta from "@/pages/RegistrarVenta";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -25,6 +27,8 @@ function Router() {
         <Route path="/cotizaciones" component={Cotizaciones} />
         <Route path="/nueva-cotizacion" component={NuevaCotizacion} />
         <Route path="/cotizacion/:id" component={CotizacionDetalle} />
+        <Route path="/caja" component={CuadreCaja} />
+        <Route path="/caja/venta/:fecha" component={RegistrarVenta} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

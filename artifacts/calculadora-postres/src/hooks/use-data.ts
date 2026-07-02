@@ -1,5 +1,5 @@
 import { useLocalStorage } from "./use-local-storage";
-import type { Ingrediente, Receta, CalcReceta, Cotizacion } from "@/types";
+import type { Ingrediente, Receta, CalcReceta, Cotizacion, VentaDiaria } from "@/types";
 
 export function useIngredientes() {
   const [ingredientes, setIngredientes] = useLocalStorage<Ingrediente[]>("postres_ingredientes", []);
@@ -91,6 +91,41 @@ export function useCotizaciones() {
   }
 
   return { cotizaciones, agregarCotizacion, actualizarCotizacion, cambiarEstado, eliminarCotizacion, getCotizacion };
+}
+
+export function useVentas() {
+  const [ventas, setVentas] = useLocalStorage<VentaDiaria[]>("postres_ventas", []);
+
+  function guardarVenta(data: Omit<VentaDiaria, "id">) {
+    const existente = ventas.find((v) => v.fecha === data.fecha);
+    if (existente) {
+      setVentas((prev) => prev.map((v) => v.fecha === data.fecha ? { ...v, ...data } : v));
+      return existente;
+    }
+    const nueva: VentaDiaria = { ...data, id: crypto.randomUUID() };
+    setVentas((prev) => [...prev, nueva]);
+    return nueva;
+  }
+
+  function eliminarVenta(fecha: string) {
+    setVentas((prev) => prev.filter((v) => v.fecha !== fecha));
+  }
+
+  function getVentaPorFecha(fecha: string) {
+    return ventas.find((v) => v.fecha === fecha);
+  }
+
+  function getVentasSemana(inicioSemana: string) {
+    const inicio = new Date(inicioSemana + "T00:00:00");
+    const fin = new Date(inicio);
+    fin.setDate(fin.getDate() + 6);
+    return ventas.filter((v) => {
+      const d = new Date(v.fecha + "T00:00:00");
+      return d >= inicio && d <= fin;
+    });
+  }
+
+  return { ventas, guardarVenta, eliminarVenta, getVentaPorFecha, getVentasSemana };
 }
 
 export function calcularPrecio(receta: Receta, ingredientes: Ingrediente[]): CalcReceta {
