@@ -12,6 +12,7 @@ import NuevaCotizacion from "@/pages/NuevaCotizacion";
 import CotizacionDetalle from "@/pages/CotizacionDetalle";
 import CuadreCaja from "@/pages/CuadreCaja";
 import RegistrarVenta from "@/pages/RegistrarVenta";
+import Respaldo from "@/pages/Respaldo";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ function Router() {
         <Route path="/cotizacion/:id" component={CotizacionDetalle} />
         <Route path="/caja" component={CuadreCaja} />
         <Route path="/caja/venta/:fecha" component={RegistrarVenta} />
+        <Route path="/respaldo" component={Respaldo} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

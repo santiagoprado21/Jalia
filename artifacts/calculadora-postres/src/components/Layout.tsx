@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutGrid, Package, PlusCircle, ChefHat, FileText, Calculator } from "lucide-react";
+import { LayoutGrid, Package, PlusCircle, ChefHat, FileText, Calculator, HardDriveDownload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -8,6 +8,10 @@ const navItems = [
   { href: "/caja", label: "Cuadre de Caja", icon: Calculator },
   { href: "/ingredientes", label: "Ingredientes", icon: Package },
   { href: "/nueva-receta", label: "Nueva Receta", icon: PlusCircle },
+];
+
+const navBottom = [
+  { href: "/respaldo", label: "Respaldo", icon: HardDriveDownload },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -51,9 +55,30 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="px-6 py-4 border-t border-border">
+        <div className="px-3 pb-3 space-y-1">
+          {navBottom.map(({ href, label, icon: Icon }) => {
+            const active = location.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                data-testid={`nav-${label.toLowerCase()}`}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+        <div className="px-6 py-3 border-t border-border">
           <p className="text-xs text-muted-foreground">
-            Todos los datos se guardan localmente en tu dispositivo.
+            Datos guardados en este dispositivo.
           </p>
         </div>
       </aside>
