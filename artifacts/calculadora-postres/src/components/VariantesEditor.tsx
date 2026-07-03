@@ -351,9 +351,15 @@ export default function VariantesEditor({ variantes, onChange, ingredientes, rec
                                   <span className="font-medium">{formatMXN(calc.costoPorPorcion)}</span>
                                 </div>
                                 <div className="flex justify-between font-semibold text-sm pt-1">
-                                  <span className="text-foreground">Precio de venta</span>
+                                  <span className="text-foreground">Precio al detal</span>
                                   <span className="text-primary">{formatMXN(calc.precioVentaSugerido)}</span>
                                 </div>
+                                {calc.precioMayorista !== undefined && calc.precioMayorista > 0 && (
+                                  <div className="flex justify-between font-semibold text-sm">
+                                    <span className="text-foreground">Precio mayorista</span>
+                                    <span className="text-blue-700">{formatMXN(calc.precioMayorista)}</span>
+                                  </div>
+                                )}
                               </div>
                             );
                           })()}

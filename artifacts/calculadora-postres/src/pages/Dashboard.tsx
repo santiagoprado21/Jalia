@@ -211,9 +211,9 @@ export default function Dashboard() {
                       </div>
                     </CardHeader>
                     <CardContent className="pt-2">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className={`grid gap-3 ${calc.precioMayorista ? "grid-cols-3" : "grid-cols-2"}`}>
                         <div className="bg-muted/60 rounded-lg p-3">
-                          <p className="text-xs text-muted-foreground mb-0.5">Costo por porcion</p>
+                          <p className="text-xs text-muted-foreground mb-0.5">Costo / porcion</p>
                           <p
                             className="font-semibold text-sm text-foreground"
                             data-testid={`text-costo-${receta.id}`}
@@ -222,7 +222,7 @@ export default function Dashboard() {
                           </p>
                         </div>
                         <div className="bg-primary/10 rounded-lg p-3">
-                          <p className="text-xs text-muted-foreground mb-0.5">Precio sugerido</p>
+                          <p className="text-xs text-muted-foreground mb-0.5">Precio detal</p>
                           <p
                             className="font-semibold text-sm text-primary"
                             data-testid={`text-precio-${receta.id}`}
@@ -230,6 +230,14 @@ export default function Dashboard() {
                             {formatMXN(calc.precioVentaSugerido)}
                           </p>
                         </div>
+                        {calc.precioMayorista && calc.precioMayorista > 0 && (
+                          <div className="bg-blue-50 rounded-lg p-3">
+                            <p className="text-xs text-muted-foreground mb-0.5">Mayorista</p>
+                            <p className="font-semibold text-sm text-blue-700">
+                              {formatMXN(calc.precioMayorista)}
+                            </p>
+                          </div>
+                        )}
                       </div>
                       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                         <span>Margen: {receta.margenGanancia}%</span>

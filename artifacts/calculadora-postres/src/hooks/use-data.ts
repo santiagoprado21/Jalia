@@ -158,7 +158,17 @@ export function calcularPrecioVariante(
   const costoPorPorcion = costoTotal / basePorciones;
   const precioVentaSugerido = costoPorPorcion * (1 + receta.margenGanancia / 100);
   const gananciaTotal = (precioVentaSugerido - costoPorPorcion) * basePorciones;
-  return { costoIngredientes, costoTotal, costoPorPorcion, precioVentaSugerido, gananciaTotal };
+
+  const precioMayorista =
+    receta.margenMayorista !== undefined && receta.margenMayorista > 0
+      ? costoPorPorcion * (1 + receta.margenMayorista / 100)
+      : undefined;
+  const gananciaMayorista =
+    precioMayorista !== undefined
+      ? (precioMayorista - costoPorPorcion) * basePorciones
+      : undefined;
+
+  return { costoIngredientes, costoTotal, costoPorPorcion, precioVentaSugerido, gananciaTotal, precioMayorista, gananciaMayorista };
 }
 
 export function calcularPrecio(receta: Receta, ingredientes: Ingrediente[]): CalcReceta {
@@ -173,5 +183,14 @@ export function calcularPrecio(receta: Receta, ingredientes: Ingrediente[]): Cal
   const precioVentaSugerido = costoPorPorcion * (1 + receta.margenGanancia / 100);
   const gananciaTotal = (precioVentaSugerido - costoPorPorcion) * receta.porciones;
 
-  return { costoIngredientes, costoTotal, costoPorPorcion, precioVentaSugerido, gananciaTotal };
+  const precioMayorista =
+    receta.margenMayorista !== undefined && receta.margenMayorista > 0
+      ? costoPorPorcion * (1 + receta.margenMayorista / 100)
+      : undefined;
+  const gananciaMayorista =
+    precioMayorista !== undefined
+      ? (precioMayorista - costoPorPorcion) * receta.porciones
+      : undefined;
+
+  return { costoIngredientes, costoTotal, costoPorPorcion, precioVentaSugerido, gananciaTotal, precioMayorista, gananciaMayorista };
 }

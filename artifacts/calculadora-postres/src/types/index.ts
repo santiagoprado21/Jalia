@@ -20,6 +20,7 @@ export interface Receta {
   ingredientesReceta: IngredienteReceta[];
   costosFijos: number;
   margenGanancia: number;
+  margenMayorista?: number;
   fechaCreacion: string;
   variantes?: VarianteReceta[];
 }
@@ -30,6 +31,8 @@ export interface CalcReceta {
   costoPorPorcion: number;
   precioVentaSugerido: number;
   gananciaTotal: number;
+  precioMayorista?: number;
+  gananciaMayorista?: number;
 }
 
 export interface ItemCotizacion {

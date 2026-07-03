@@ -38,6 +38,7 @@ const schema = z.object({
   porciones: z.coerce.number().min(1, "Debe producir al menos 1 porcion"),
   costosFijos: z.coerce.number().min(0),
   margenGanancia: z.coerce.number().min(0).max(1000),
+  margenMayorista: z.coerce.number().min(0).max(1000),
   ingredientesReceta: z.array(
     z.object({
       ingredienteId: z.string().min(1, "Selecciona un ingrediente"),
@@ -68,6 +69,7 @@ export default function RecetaDetalle() {
           porciones: receta.porciones,
           costosFijos: receta.costosFijos,
           margenGanancia: receta.margenGanancia,
+          margenMayorista: receta.margenMayorista ?? 0,
           ingredientesReceta: receta.ingredientesReceta,
         }
       : {
@@ -76,6 +78,7 @@ export default function RecetaDetalle() {
           porciones: 1,
           costosFijos: 0,
           margenGanancia: 30,
+          margenMayorista: 0,
           ingredientesReceta: [],
         },
   });
@@ -107,6 +110,7 @@ export default function RecetaDetalle() {
       ingredientesReceta: values.ingredientesReceta,
       costosFijos: values.costosFijos || 0,
       margenGanancia: values.margenGanancia || 0,
+      margenMayorista: values.margenMayorista || 0,
       fechaCreacion: receta.fechaCreacion,
     };
     return calcularPrecio(partial, ingredientes);
@@ -390,27 +394,56 @@ export default function RecetaDetalle() {
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name="margenGanancia"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Margen de ganancia (%)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="1"
-                            min={0}
-                            max={1000}
-                            disabled={!editing}
-                            data-testid="input-margen-ganancia"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="margenGanancia"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Margen al detal (%)</FormLabel>
+                          <p className="text-xs text-muted-foreground -mt-1">
+                            Precio de venta individual
+                          </p>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="1"
+                              min={0}
+                              max={1000}
+                              disabled={!editing}
+                              data-testid="input-margen-ganancia"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="margenMayorista"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Margen mayorista (%)</FormLabel>
+                          <p className="text-xs text-muted-foreground -mt-1">
+                            0 = no usar precio mayorista
+                          </p>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="1"
+                              min={0}
+                              max={1000}
+                              disabled={!editing}
+                              data-testid="input-margen-mayorista"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </CardContent>
               </Card>
 
@@ -475,7 +508,7 @@ export default function RecetaDetalle() {
                     </div>
                     <Separator />
                     <div className="flex justify-between">
-                      <span className="font-semibold text-foreground">Precio sugerido</span>
+                      <span className="font-semibold text-foreground">Precio al detal</span>
                       <span
                         className="font-bold text-primary text-lg"
                         data-testid="calc-precio-sugerido"
@@ -484,14 +517,34 @@ export default function RecetaDetalle() {
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Ganancia total</span>
+                      <span className="text-muted-foreground">Ganancia detal</span>
                       <span className="font-medium text-green-700" data-testid="calc-ganancia-total">
                         {formatMXN(calc.gananciaTotal)}
                       </span>
                     </div>
+                    {calc.precioMayorista !== undefined && calc.precioMayorista > 0 && (
+                      <>
+                        <Separator />
+                        <div className="flex justify-between">
+                          <span className="font-semibold text-foreground">Precio mayorista</span>
+                          <span className="font-bold text-blue-700 text-lg" data-testid="calc-precio-mayorista">
+                            {formatMXN(calc.precioMayorista)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Ganancia mayorista</span>
+                          <span className="font-medium text-blue-600">
+                            {formatMXN(calc.gananciaMayorista ?? 0)}
+                          </span>
+                        </div>
+                      </>
+                    )}
                     <div className="bg-background rounded-lg p-3 mt-2">
                       <p className="text-xs text-muted-foreground">
-                        Margen aplicado: <span className="font-semibold text-foreground">{receta.margenGanancia}%</span>
+                        Detal: <span className="font-semibold text-foreground">{editing ? (values.margenGanancia || 0) : receta.margenGanancia}%</span>
+                        {((editing ? (values.margenMayorista || 0) : (receta.margenMayorista ?? 0)) > 0) && (
+                          <> &nbsp;·&nbsp; Mayorista: <span className="font-semibold text-foreground">{editing ? (values.margenMayorista || 0) : receta.margenMayorista}%</span></>
+                        )}
                       </p>
                     </div>
                   </CardContent>
