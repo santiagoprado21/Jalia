@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Plus, Trash2, ArrowLeft, Calculator } from "lucide-react";
 import { Link } from "wouter";
 import { useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
+import { useToast } from "@/hooks/use-toast";
 import { CATEGORIAS } from "@/types";
 import type { VarianteReceta } from "@/types";
 import VariantesEditor from "@/components/VariantesEditor";
@@ -43,6 +44,7 @@ export default function NuevaReceta() {
   const [, setLocation] = useLocation();
   const { agregarReceta } = useRecetas();
   const { ingredientes } = useIngredientes();
+  const { toast } = useToast();
   const [variantes, setVariantes] = useState<VarianteReceta[]>([]);
 
   const form = useForm<FormValues>({
@@ -94,6 +96,10 @@ export default function NuevaReceta() {
 
   function onSubmit(values: FormValues) {
     agregarReceta({ ...values, variantes });
+    toast({
+      title: "✅ Receta guardada",
+      description: `"${values.nombre}" ya aparece en Mis Recetas.`,
+    });
     setLocation("/");
   }
 

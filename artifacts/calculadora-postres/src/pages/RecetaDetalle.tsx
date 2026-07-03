@@ -6,6 +6,7 @@ import { z } from "zod";
 import { ArrowLeft, Plus, Trash2, Calculator, Pencil } from "lucide-react";
 import { Link } from "wouter";
 import { useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
+import { useToast } from "@/hooks/use-toast";
 import { CATEGORIAS } from "@/types";
 import type { VarianteReceta } from "@/types";
 import VariantesEditor from "@/components/VariantesEditor";
@@ -54,6 +55,7 @@ export default function RecetaDetalle() {
   const [, setLocation] = useLocation();
   const { getReceta, actualizarReceta, eliminarReceta } = useRecetas();
   const { ingredientes } = useIngredientes();
+  const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -131,6 +133,10 @@ export default function RecetaDetalle() {
 
   function onSubmit(values: FormValues) {
     actualizarReceta(receta.id, { ...values, variantes });
+    toast({
+      title: "✅ Cambios guardados",
+      description: `"${values.nombre}" se actualizó correctamente.`,
+    });
     setEditing(false);
   }
 
