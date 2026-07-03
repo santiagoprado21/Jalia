@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { PlusCircle, TrendingUp, DollarSign, ShoppingBag, ChevronLeft, ChevronRight, BarChart3, Pencil, Trash2 } from "lucide-react";
+import { PlusCircle, TrendingUp, DollarSign, ShoppingBag, ChevronLeft, ChevronRight, BarChart3, Pencil, Trash2, FileDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { useVentas, useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
 import { DIAS_SEMANA } from "@/types";
@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { exportarCuadreSemanalPDF } from "@/lib/exportar";
 
 export default function CuadreCaja() {
   const { ventas, getVentasSemana, eliminarVenta } = useVentas();
@@ -100,12 +101,23 @@ export default function CuadreCaja() {
           <h2 className="font-serif text-3xl font-bold text-foreground">Cuadre de Caja</h2>
           <p className="text-muted-foreground mt-1">Resumen semanal de ventas</p>
         </div>
-        <Link href={`/caja/venta/${hoy}`}>
-          <Button data-testid="button-registrar-venta" className="gap-2">
-            <PlusCircle className="w-4 h-4" />
-            Registrar venta
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => exportarCuadreSemanalPDF(lunesActual, ventas, recetas, ingredientes)}
+            data-testid="button-exportar-cuadre-pdf"
+            className="gap-2"
+          >
+            <FileDown className="w-4 h-4" />
+            Exportar PDF
           </Button>
-        </Link>
+          <Link href={`/caja/venta/${hoy}`}>
+            <Button data-testid="button-registrar-venta" className="gap-2">
+              <PlusCircle className="w-4 h-4" />
+              Registrar venta
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Week navigator */}

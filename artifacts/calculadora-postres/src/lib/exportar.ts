@@ -1,8 +1,9 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import type { Receta, Ingrediente, Cotizacion } from "@/types";
+import type { Receta, Ingrediente, Cotizacion, VentaDiaria } from "@/types";
 import { calcularPrecio } from "@/hooks/use-data";
+import { formatSemana, getDiasSemana } from "@/lib/semana";
 
 const NEGOCIO = "JALIA";
 
@@ -252,4 +253,157 @@ export function exportarCotizacionPDF(
   doc.text(`${NEGOCIO} — gracias por tu preferencia`, 14, pageH - 10);
 
   doc.save(`JALIA_cotizacion_${cotizacion.nombreCliente.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+export function exportarCuadreSemanalPDF(
+  lunesISO: string,
+  ventas: VentaDiaria[],
+  recetas: Receta[],
+  ingredientes: Ingrediente[]
+) {
+  const doc = new jsPDF();
+  const dias = getDiasSemana(lunesISO);
+  const DIAS_NOMBRES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+
+  function totalesDia(fecha: string) {
+    const venta = ventas.find((v) => v.fecha === fecha);
+    if (!venta || venta.items.length === 0) return { ingresos: 0, costos: 0, ganancia: 0, unidades: 0, items: [] };
+    let ingresos = 0, costos = 0, unidades = 0;
+    venta.items.forEach((item) => {
+      const receta = recetas.find((r) => r.id === item.recetaId);
+      ingresos += item.precioVenta * item.cantidad;
+      unidades += item.cantidad;
+      if (receta) costos += calcularPrecio(receta, ingredientes).costoPorPorcion * item.cantidad;
+    });
+    return { ingresos, costos, ganancia: ingresos - costos, unidades, items: venta.items };
+  }
+
+  const totalSemana = dias.reduce(
+    (acc, f) => { const t = totalesDia(f); return { ingresos: acc.ingresos + t.ingresos, costos: acc.costos + t.costos, ganancia: acc.ganancia + t.ganancia, unidades: acc.unidades + t.unidades }; },
+    { ingresos: 0, costos: 0, ganancia: 0, unidades: 0 }
+  );
+
+  // --- Header ---
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.setTextColor(60, 25, 10);
+  doc.text(NEGOCIO, 14, 20);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(120, 80, 60);
+  doc.text("Cuadre de Caja Semanal", 14, 28);
+
+  doc.setFontSize(9);
+  doc.setTextColor(160, 130, 110);
+  doc.text(`Semana: ${formatSemana(lunesISO)}`, 14, 35);
+  doc.text(`Generado el ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`, 14, 41);
+
+  // --- Summary box ---
+  doc.setDrawColor(220, 195, 175);
+  doc.setFillColor(255, 248, 240);
+  doc.roundedRect(14, 47, 182, 28, 3, 3, "FD");
+
+  const summaryItems = [
+    { label: "Ingresos", value: formatMXN(totalSemana.ingresos) },
+    { label: "Costos est.", value: formatMXN(totalSemana.costos) },
+    { label: "Ganancia", value: formatMXN(totalSemana.ganancia) },
+    { label: "Unidades", value: totalSemana.unidades.toString() },
+    { label: "Margen", value: totalSemana.ingresos > 0 ? `${Math.round((totalSemana.ganancia / totalSemana.ingresos) * 100)}%` : "—" },
+  ];
+  const colW = 182 / summaryItems.length;
+  summaryItems.forEach(({ label, value }, i) => {
+    const x = 14 + i * colW + colW / 2;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(140, 100, 80);
+    doc.text(label, x, 56, { align: "center" });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(60, 25, 10);
+    doc.text(value, x, 63, { align: "center" });
+  });
+
+  // --- Daily table ---
+  const rowsDias = dias.map((fecha, i) => {
+    const t = totalesDia(fecha);
+    const d = new Date(fecha + "T12:00:00");
+    const fechaStr = d.toLocaleDateString("es-MX", { day: "2-digit", month: "short" });
+    return [
+      `${DIAS_NOMBRES[i]} ${fechaStr}`,
+      t.unidades > 0 ? t.unidades.toString() : "—",
+      t.ingresos > 0 ? formatMXN(t.ingresos) : "—",
+      t.costos > 0 ? formatMXN(t.costos) : "—",
+      t.ganancia > 0 ? formatMXN(t.ganancia) : "—",
+    ];
+  });
+
+  autoTable(doc, {
+    startY: 82,
+    head: [["Día", "Unidades", "Ingresos", "Costos est.", "Ganancia"]],
+    body: rowsDias,
+    foot: [["TOTAL SEMANA", totalSemana.unidades.toString(), formatMXN(totalSemana.ingresos), formatMXN(totalSemana.costos), formatMXN(totalSemana.ganancia)]],
+    headStyles: { fillColor: [60, 25, 10], textColor: [255, 248, 240], fontStyle: "bold", fontSize: 9 },
+    bodyStyles: { fontSize: 9, textColor: [40, 20, 10] },
+    footStyles: { fillColor: [255, 240, 225], textColor: [60, 25, 10], fontStyle: "bold", fontSize: 9 },
+    alternateRowStyles: { fillColor: [255, 250, 245] },
+    columnStyles: {
+      0: { cellWidth: 52 },
+      1: { halign: "center", cellWidth: 26 },
+      2: { halign: "right" },
+      3: { halign: "right" },
+      4: { halign: "right" },
+    },
+    styles: { cellPadding: 3.5 },
+  });
+
+  // --- Best sellers ---
+  const ventasMap: Record<string, { nombre: string; unidades: number; ingresos: number; costos: number }> = {};
+  ventas.filter((v) => dias.includes(v.fecha)).forEach((v) => {
+    v.items.forEach((item) => {
+      const receta = recetas.find((r) => r.id === item.recetaId);
+      if (!receta) return;
+      if (!ventasMap[item.recetaId]) ventasMap[item.recetaId] = { nombre: receta.nombre, unidades: 0, ingresos: 0, costos: 0 };
+      ventasMap[item.recetaId].unidades += item.cantidad;
+      ventasMap[item.recetaId].ingresos += item.precioVenta * item.cantidad;
+      ventasMap[item.recetaId].costos += calcularPrecio(receta, ingredientes).costoPorPorcion * item.cantidad;
+    });
+  });
+
+  const mejores = Object.values(ventasMap).sort((a, b) => b.ingresos - a.ingresos);
+
+  if (mejores.length > 0) {
+    const lastTable = (doc as any).lastAutoTable;
+    const startY2 = lastTable ? lastTable.finalY + 10 : 180;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(60, 25, 10);
+    doc.text("Productos vendidos", 14, startY2);
+
+    autoTable(doc, {
+      startY: startY2 + 4,
+      head: [["Postre", "Unidades", "Ingresos", "Costos est.", "Ganancia"]],
+      body: mejores.map((p) => [p.nombre, p.unidades.toString(), formatMXN(p.ingresos), formatMXN(p.costos), formatMXN(p.ingresos - p.costos)]),
+      headStyles: { fillColor: [90, 45, 20], textColor: [255, 248, 240], fontStyle: "bold", fontSize: 9 },
+      bodyStyles: { fontSize: 9, textColor: [40, 20, 10] },
+      alternateRowStyles: { fillColor: [255, 250, 245] },
+      columnStyles: {
+        0: { cellWidth: "auto" },
+        1: { halign: "center", cellWidth: 26 },
+        2: { halign: "right" },
+        3: { halign: "right" },
+        4: { halign: "right" },
+      },
+      styles: { cellPadding: 3.5 },
+    });
+  }
+
+  // --- Footer ---
+  const pageH = doc.internal.pageSize.height;
+  doc.setFontSize(8);
+  doc.setTextColor(180, 150, 130);
+  doc.text(`${NEGOCIO} — Cuadre de caja semanal`, 14, pageH - 10);
+
+  doc.save(`JALIA_cuadre_${lunesISO}.pdf`);
 }
