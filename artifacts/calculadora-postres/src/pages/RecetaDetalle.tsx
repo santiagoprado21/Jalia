@@ -7,6 +7,8 @@ import { ArrowLeft, Plus, Trash2, Calculator, Pencil } from "lucide-react";
 import { Link } from "wouter";
 import { useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
 import { CATEGORIAS } from "@/types";
+import type { VarianteReceta } from "@/types";
+import VariantesEditor from "@/components/VariantesEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,6 +57,7 @@ export default function RecetaDetalle() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const receta = getReceta(params.id);
+  const [variantes, setVariantes] = useState<VarianteReceta[]>(receta?.variantes ?? []);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -114,8 +117,16 @@ export default function RecetaDetalle() {
   const formatMXN = (n: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
 
+  const recetaBase = {
+    ...receta,
+    porciones: values.porciones || receta.porciones,
+    ingredientesReceta: values.ingredientesReceta,
+    costosFijos: values.costosFijos || 0,
+    margenGanancia: values.margenGanancia || 0,
+  };
+
   function onSubmit(values: FormValues) {
-    actualizarReceta(receta.id, values);
+    actualizarReceta(receta.id, { ...values, variantes });
     setEditing(false);
   }
 
@@ -340,6 +351,15 @@ export default function RecetaDetalle() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Variants */}
+              <VariantesEditor
+                variantes={variantes}
+                onChange={setVariantes}
+                ingredientes={ingredientes}
+                recetaBase={recetaBase}
+                disabled={!editing}
+              />
 
               {/* Costs & margin */}
               <Card>

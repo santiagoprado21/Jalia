@@ -21,6 +21,7 @@ export interface Receta {
   costosFijos: number;
   margenGanancia: number;
   fechaCreacion: string;
+  variantes?: VarianteReceta[];
 }
 
 export interface CalcReceta {
@@ -52,6 +53,12 @@ export const ESTADOS_COTIZACION: { value: Cotizacion["estado"]; label: string; c
   { value: "confirmado", label: "Confirmado", color: "bg-green-100 text-green-700" },
   { value: "entregado", label: "Entregado", color: "bg-blue-100 text-blue-700" },
 ];
+
+export interface VarianteReceta {
+  id: string;
+  nombre: string;
+  ingredientesExtra: IngredienteReceta[];
+}
 
 export interface ItemVenta {
   recetaId: string;

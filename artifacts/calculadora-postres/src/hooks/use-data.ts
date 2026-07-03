@@ -128,6 +128,27 @@ export function useVentas() {
   return { ventas, guardarVenta, eliminarVenta, getVentaPorFecha, getVentasSemana };
 }
 
+export function calcularPrecioVariante(
+  receta: Receta,
+  ingredientesExtra: import("@/types").IngredienteReceta[],
+  ingredientes: Ingrediente[]
+): CalcReceta {
+  const baseCostoIng = receta.ingredientesReceta.reduce((sum, ir) => {
+    const ing = ingredientes.find((i) => i.id === ir.ingredienteId);
+    return sum + (ing ? ing.costoPorUnidad * ir.cantidad : 0);
+  }, 0);
+  const extraCostoIng = ingredientesExtra.reduce((sum, ir) => {
+    const ing = ingredientes.find((i) => i.id === ir.ingredienteId);
+    return sum + (ing ? ing.costoPorUnidad * ir.cantidad : 0);
+  }, 0);
+  const costoIngredientes = baseCostoIng + extraCostoIng;
+  const costoTotal = costoIngredientes + receta.costosFijos;
+  const costoPorPorcion = receta.porciones > 0 ? costoTotal / receta.porciones : 0;
+  const precioVentaSugerido = costoPorPorcion * (1 + receta.margenGanancia / 100);
+  const gananciaTotal = (precioVentaSugerido - costoPorPorcion) * receta.porciones;
+  return { costoIngredientes, costoTotal, costoPorPorcion, precioVentaSugerido, gananciaTotal };
+}
+
 export function calcularPrecio(receta: Receta, ingredientes: Ingrediente[]): CalcReceta {
   const costoIngredientes = receta.ingredientesReceta.reduce((sum, ir) => {
     const ing = ingredientes.find((i) => i.id === ir.ingredienteId);
