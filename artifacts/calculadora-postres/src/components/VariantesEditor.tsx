@@ -50,6 +50,10 @@ export default function VariantesEditor({ variantes, onChange, ingredientes, rec
     onChange(variantes.map((v) => (v.id === id ? { ...v, nombre } : v)));
   }
 
+  function actualizarPorciones(id: string, porcionesVariante: number) {
+    onChange(variantes.map((v) => (v.id === id ? { ...v, porcionesVariante } : v)));
+  }
+
   function agregarIngredienteExtra(varianteId: string) {
     onChange(
       variantes.map((v) =>
@@ -119,7 +123,7 @@ export default function VariantesEditor({ variantes, onChange, ingredientes, rec
         ) : (
           <div className="space-y-3">
             {variantes.map((variante, vi) => {
-              const calc = calcularPrecioVariante(recetaBase, variante.ingredientesExtra, ingredientes);
+              const calc = calcularPrecioVariante(recetaBase, variante.ingredientesExtra, variante.porcionesVariante, ingredientes);
               const abierta = expandida === variante.id;
 
               return (
@@ -181,16 +185,37 @@ export default function VariantesEditor({ variantes, onChange, ingredientes, rec
                         className="overflow-hidden"
                       >
                         <div className="px-4 py-4 space-y-4">
-                          {/* Nombre */}
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Nombre del sabor / variante</Label>
-                            <Input
-                              placeholder="Ej. Salsa de fresa, Salsa de mango..."
-                              value={variante.nombre}
-                              disabled={disabled}
-                              onChange={(e) => actualizarNombre(variante.id, e.target.value)}
-                              data-testid={`input-nombre-variante-${vi}`}
-                            />
+                          {/* Nombre + porciones */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Nombre del sabor / variante</Label>
+                              <Input
+                                placeholder="Ej. Salsa de fresa, Salsa de mango..."
+                                value={variante.nombre}
+                                disabled={disabled}
+                                onChange={(e) => actualizarNombre(variante.id, e.target.value)}
+                                data-testid={`input-nombre-variante-${vi}`}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">
+                                ¿Para cuántos postres alcanza esta salsa?
+                              </Label>
+                              <Input
+                                type="number"
+                                min={1}
+                                placeholder={`Ej. ${recetaBase.porciones} (igual que la base)`}
+                                value={variante.porcionesVariante ?? ""}
+                                disabled={disabled}
+                                onChange={(e) =>
+                                  actualizarPorciones(variante.id, parseInt(e.target.value) || 0)
+                                }
+                                data-testid={`input-porciones-variante-${vi}`}
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                Si dejas vacío, usa las {recetaBase.porciones} porciones de la base
+                              </p>
+                            </div>
                           </div>
 
                           {/* Extra ingredients */}
@@ -285,21 +310,53 @@ export default function VariantesEditor({ variantes, onChange, ingredientes, rec
 
                           {/* Price breakdown for this variant */}
                           <Separator />
-                          <div className="bg-primary/5 rounded-lg px-3 py-3 space-y-1.5 text-xs">
-                            <p className="font-semibold text-foreground text-sm mb-2">Precio calculado — {variante.nombre || "esta variante"}</p>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Costo base + extras</span>
-                              <span className="font-medium">{formatMXN(calc.costoIngredientes)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Costo por porción</span>
-                              <span className="font-medium">{formatMXN(calc.costoPorPorcion)}</span>
-                            </div>
-                            <div className="flex justify-between font-semibold text-sm pt-1">
-                              <span className="text-foreground">Precio de venta</span>
-                              <span className="text-primary">{formatMXN(calc.precioVentaSugerido)}</span>
-                            </div>
-                          </div>
+                          {(() => {
+                            const basePorciones = recetaBase.porciones || 1;
+                            const extraPorciones = variante.porcionesVariante && variante.porcionesVariante > 0
+                              ? variante.porcionesVariante : basePorciones;
+                            const extraCostoTotal = variante.ingredientesExtra.reduce((sum, ir) => {
+                              const ing = ingredientes.find((i) => i.id === ir.ingredienteId);
+                              return sum + (ing ? ing.costoPorUnidad * ir.cantidad : 0);
+                            }, 0);
+                            const extraCostoPorPorcion = extraCostoTotal / extraPorciones;
+
+                            return (
+                              <div className="bg-primary/5 rounded-lg px-3 py-3 space-y-1.5 text-xs">
+                                <p className="font-semibold text-foreground text-sm mb-2">
+                                  Desglose — {variante.nombre || "esta variante"}
+                                </p>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Costo base por porción</span>
+                                  <span className="font-medium">
+                                    {formatMXN((recetaBase.ingredientesReceta.reduce((s, ir) => {
+                                      const ing = ingredientes.find(i => i.id === ir.ingredienteId);
+                                      return s + (ing ? ing.costoPorUnidad * ir.cantidad : 0);
+                                    }, 0)) / basePorciones)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">
+                                    Salsa por porción
+                                    {variante.porcionesVariante ? ` (÷${extraPorciones})` : ""}
+                                  </span>
+                                  <span className="font-medium">{formatMXN(extraCostoPorPorcion)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Costos fijos por porción</span>
+                                  <span className="font-medium">{formatMXN(recetaBase.costosFijos / basePorciones)}</span>
+                                </div>
+                                <Separator className="my-1" />
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Costo total por porción</span>
+                                  <span className="font-medium">{formatMXN(calc.costoPorPorcion)}</span>
+                                </div>
+                                <div className="flex justify-between font-semibold text-sm pt-1">
+                                  <span className="text-foreground">Precio de venta</span>
+                                  <span className="text-primary">{formatMXN(calc.precioVentaSugerido)}</span>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </motion.div>
                     )}

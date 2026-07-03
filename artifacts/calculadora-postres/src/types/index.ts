@@ -57,6 +57,7 @@ export const ESTADOS_COTIZACION: { value: Cotizacion["estado"]; label: string; c
 export interface VarianteReceta {
   id: string;
   nombre: string;
+  porcionesVariante?: number;
   ingredientesExtra: IngredienteReceta[];
 }
 

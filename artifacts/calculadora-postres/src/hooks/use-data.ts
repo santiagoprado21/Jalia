@@ -131,21 +131,33 @@ export function useVentas() {
 export function calcularPrecioVariante(
   receta: Receta,
   ingredientesExtra: import("@/types").IngredienteReceta[],
+  porcionesVariante: number | undefined,
   ingredientes: Ingrediente[]
 ): CalcReceta {
+  const basePorciones = receta.porciones > 0 ? receta.porciones : 1;
+  const extraPorciones = porcionesVariante && porcionesVariante > 0 ? porcionesVariante : basePorciones;
+
   const baseCostoIng = receta.ingredientesReceta.reduce((sum, ir) => {
     const ing = ingredientes.find((i) => i.id === ir.ingredienteId);
     return sum + (ing ? ing.costoPorUnidad * ir.cantidad : 0);
   }, 0);
+
   const extraCostoIng = ingredientesExtra.reduce((sum, ir) => {
     const ing = ingredientes.find((i) => i.id === ir.ingredienteId);
     return sum + (ing ? ing.costoPorUnidad * ir.cantidad : 0);
   }, 0);
-  const costoIngredientes = baseCostoIng + extraCostoIng;
+
+  // Cost per portion: base ingredients ÷ base portions, extra ÷ their own portions
+  const baseCostoPorPorcion = baseCostoIng / basePorciones;
+  const extraCostoPorPorcion = extraCostoIng / extraPorciones;
+  const totalIngPorPorcion = baseCostoPorPorcion + extraCostoPorPorcion;
+
+  // Scale back to base portions for CalcReceta totals
+  const costoIngredientes = totalIngPorPorcion * basePorciones;
   const costoTotal = costoIngredientes + receta.costosFijos;
-  const costoPorPorcion = receta.porciones > 0 ? costoTotal / receta.porciones : 0;
+  const costoPorPorcion = costoTotal / basePorciones;
   const precioVentaSugerido = costoPorPorcion * (1 + receta.margenGanancia / 100);
-  const gananciaTotal = (precioVentaSugerido - costoPorPorcion) * receta.porciones;
+  const gananciaTotal = (precioVentaSugerido - costoPorPorcion) * basePorciones;
   return { costoIngredientes, costoTotal, costoPorPorcion, precioVentaSugerido, gananciaTotal };
 }
 
