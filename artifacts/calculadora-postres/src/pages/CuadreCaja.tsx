@@ -4,7 +4,7 @@ import { PlusCircle, TrendingUp, DollarSign, ShoppingBag, ChevronLeft, ChevronRi
 import { motion } from "framer-motion";
 import { useVentas, useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
 import { DIAS_SEMANA } from "@/types";
-import { getLunesDeSemana, toISODate, formatSemana, getDiasSemana, getSemanas, formatFecha } from "@/lib/semana";
+import { getLunesDeSemana, toISODate, formatSemana, getDiasSemana, formatFecha } from "@/lib/semana";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -24,13 +24,24 @@ export default function CuadreCaja() {
   const { recetas } = useRecetas();
   const { ingredientes } = useIngredientes();
 
-  const semanas = getSemanas(ventas);
-  const [semanaIdx, setSemanaIdx] = useState(0);
+  const lunesHoy = toISODate(getLunesDeSemana(new Date()));
+  const [lunesActual, setLunesActual] = useState(lunesHoy);
   const [deleteDate, setDeleteDate] = useState<string | null>(null);
 
-  const lunesActual = semanas[semanaIdx] ?? toISODate(getLunesDeSemana(new Date()));
   const diasSemana = getDiasSemana(lunesActual);
   const ventasSemana = getVentasSemana(lunesActual);
+
+  function irSemanaAnterior() {
+    const d = new Date(lunesActual + "T12:00:00");
+    d.setDate(d.getDate() - 7);
+    setLunesActual(toISODate(d));
+  }
+
+  function irSemanaSiguiente() {
+    const d = new Date(lunesActual + "T12:00:00");
+    d.setDate(d.getDate() + 7);
+    setLunesActual(toISODate(d));
+  }
 
   const formatMXN = (n: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
@@ -80,7 +91,6 @@ export default function CuadreCaja() {
   const mejoresProductos = Object.values(ventasMap).sort((a, b) => b.ingresos - a.ingresos).slice(0, 5);
 
   const hoy = toISODate(new Date());
-  const esLunesHoy = lunesActual === toISODate(getLunesDeSemana(new Date()));
 
   return (
     <div>
@@ -103,21 +113,23 @@ export default function CuadreCaja() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setSemanaIdx((i) => Math.min(i + 1, semanas.length - 1))}
-          disabled={semanaIdx >= semanas.length - 1}
+          onClick={irSemanaAnterior}
           data-testid="button-semana-anterior"
         >
           <ChevronLeft className="w-4 h-4" />
         </Button>
         <div className="text-center">
           <p className="font-semibold text-foreground">{formatSemana(lunesActual)}</p>
-          {esLunesHoy && <p className="text-xs text-primary font-medium">Semana actual</p>}
+          {lunesActual === lunesHoy
+            ? <p className="text-xs text-primary font-medium">Semana actual</p>
+            : <button onClick={() => setLunesActual(lunesHoy)} className="text-xs text-muted-foreground hover:text-primary underline">Ir a semana actual</button>
+          }
         </div>
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setSemanaIdx((i) => Math.max(i - 1, 0))}
-          disabled={semanaIdx <= 0}
+          onClick={irSemanaSiguiente}
+          disabled={lunesActual >= lunesHoy}
           data-testid="button-semana-siguiente"
         >
           <ChevronRight className="w-4 h-4" />
