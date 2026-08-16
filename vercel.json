@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm --filter @workspace/calculadora-postres build",
+  "buildCommand": "pnpm --filter @workspace/calculadora-postres build && rm -rf public && cp -r artifacts/calculadora-postres/dist/public public",
   "outputDirectory": "public",
   "installCommand": "pnpm install --no-frozen-lockfile",
   "framework": null,

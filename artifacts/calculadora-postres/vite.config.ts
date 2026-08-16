@@ -7,10 +7,6 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const port = Number(process.env.PORT ?? "5173");
 const basePath = process.env.BASE_PATH ?? "/";
-const outDir =
-  process.env.VERCEL === "1"
-    ? path.resolve(import.meta.dirname, "..", "..", "public")
-    : path.resolve(import.meta.dirname, "dist/public");
 
 export default defineConfig({
   base: basePath,
@@ -49,7 +45,7 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname),
   build: {
-    outDir,
+    outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
   },
   server: {

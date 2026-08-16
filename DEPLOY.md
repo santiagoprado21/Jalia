@@ -1,44 +1,31 @@
 # Deploy en Vercel
 
-## Configuración obligatoria (lee esto primero)
+## Opción A — Root Directory vacío (recomendado)
 
-En **Settings → General** del proyecto Vercel:
-
-| Campo | Valor correcto |
-|-------|----------------|
-| Root Directory | **vacío** (raíz del repo, NO `artifacts/api-server`) |
+| Campo | Valor |
+|-------|--------|
+| Repo | `santiagoprado21/Jalia` |
+| Root Directory | **vacío** |
 | Output Directory | **`public`** |
 | Framework | **Other** |
 
-Si Root Directory no está vacío, el deploy **fallará**.
+Usa el `vercel.json` de la raíz del repo.
 
-## Importar el proyecto
+## Opción B — Root Directory = `artifacts/calculadora-postres`
 
-1. [vercel.com/new](https://vercel.com/new) → Import **`santiagoprado21/Jalia`**
-2. Branch: **`main`**
-3. Root Directory: **dejar vacío**
-4. Deploy
+| Campo | Valor |
+|-------|--------|
+| Root Directory | **`artifacts/calculadora-postres`** |
+| Output Directory | **`public`** |
+| Framework | **Other** |
 
-El `vercel.json` en la raíz ya configura install, build y output.
+Usa el `vercel.json` dentro de esa carpeta.
 
-## Cómo funciona el build
+## NO uses
 
-En Vercel, Vite escribe directamente en la carpeta `public/` en la raíz del repo (sin copiar archivos). Localmente sigue usando `artifacts/calculadora-postres/dist/public`.
+- Root Directory = `artifacts/api-server` (backend que no se usa)
+- Output Directory = `dist/public` (el build copia a `public` automáticamente)
 
-## Si sigue fallando
+## Si sigues con errores
 
-1. **Borra** el proyecto `jalia-api-server` (tiene mala config)
-2. Crea uno nuevo con los valores de arriba
-3. O en el proyecto existente: **Settings → General → Root Directory** → borrar el valor → Save → Redeploy
-
-## Repo conectado
-
-Debe decir **`santiagoprado21/Jalia`**, no `jalia_postres`.
-
-## Deploy manual (opcional)
-
-```bash
-cd /Users/santiago.prado/Downloads/Dessert-Pricing-Calc
-pnpm install
-npx vercel --prod
-```
+Borra el proyecto `jalia-api-server` y créalo de nuevo con la **Opción A**.
