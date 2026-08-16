@@ -325,3 +325,19 @@
     inset: -1px;
   }
 }
+
+html.native-app,
+.native-shell {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+body {
+  overscroll-behavior-y: none;
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .native-shell main {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+}
