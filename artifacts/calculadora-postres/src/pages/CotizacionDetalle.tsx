@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useLocation, Link } from "wouter";
 import { ArrowLeft, FileDown, Trash2, CheckCircle2, Clock, Package } from "lucide-react";
 import { useCotizaciones, useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
+import { formatMoneda, LOCALE } from "@/lib/moneda";
 import { ESTADOS_COTIZACION, type Cotizacion } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,9 +48,6 @@ export default function CotizacionDetalle() {
     );
   }
 
-  const formatMXN = (n: number) =>
-    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
-
   const itemsConDetalle = cotizacion.items.map((item) => {
     const receta = recetas.find((r) => r.id === item.recetaId);
     if (!receta) return null;
@@ -67,7 +65,7 @@ export default function CotizacionDetalle() {
 
   const estado = ESTADOS_COTIZACION.find((e) => e.value === cotizacion.estado);
 
-  const fechaCreacion = new Date(cotizacion.fechaCreacion).toLocaleDateString("es-MX", {
+  const fechaCreacion = new Date(cotizacion.fechaCreacion).toLocaleDateString(LOCALE, {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -88,11 +86,11 @@ export default function CotizacionDetalle() {
 
   function handleWhatsApp() {
     const lineas = itemsConDetalle.map(
-      (i) => `• ${i.cantidad}x ${i.nombre} — ${formatMXN(i.subtotal)}`
+      (i) => `• ${i.cantidad}x ${i.nombre} — ${formatMoneda(i.subtotal)}`
     ).join("\n");
 
     const fecha = cotizacion.fechaEntrega
-      ? new Date(cotizacion.fechaEntrega + "T12:00:00").toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })
+      ? new Date(cotizacion.fechaEntrega + "T12:00:00").toLocaleDateString(LOCALE, { day: "2-digit", month: "long", year: "numeric" })
       : null;
 
     const mensaje = [
@@ -100,7 +98,7 @@ export default function CotizacionDetalle() {
       "",
       lineas,
       "",
-      `*Total: ${formatMXN(total)}*`,
+      `*Total: ${formatMoneda(total)}*`,
       fecha ? `Fecha de entrega: ${fecha}` : "",
       cotizacion.notas ? `Notas: ${cotizacion.notas}` : "",
     ].filter((l) => l !== undefined && !(l === "" && !fecha && !cotizacion.notas)).join("\n");
@@ -212,7 +210,7 @@ export default function CotizacionDetalle() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Fecha de entrega</span>
                   <span className="font-medium">
-                    {new Date(cotizacion.fechaEntrega + "T12:00:00").toLocaleDateString("es-MX", {
+                    {new Date(cotizacion.fechaEntrega + "T12:00:00").toLocaleDateString(LOCALE, {
                       day: "2-digit",
                       month: "long",
                       year: "numeric",
@@ -250,12 +248,12 @@ export default function CotizacionDetalle() {
                         <div>
                           <p className="font-medium text-sm text-foreground">{item.nombre}</p>
                           <p className="text-xs text-muted-foreground">
-                            {item.cantidad} {item.cantidad === 1 ? "pieza" : "piezas"} × {formatMXN(item.precioUnit)}
+                            {item.cantidad} {item.cantidad === 1 ? "pieza" : "piezas"} × {formatMoneda(item.precioUnit)}
                           </p>
                         </div>
                       </div>
                       <p className="font-semibold text-sm" data-testid={`text-subtotal-${i}`}>
-                        {formatMXN(item.subtotal)}
+                        {formatMoneda(item.subtotal)}
                       </p>
                     </div>
                   ))}
@@ -263,7 +261,7 @@ export default function CotizacionDetalle() {
                   <div className="flex justify-between font-semibold">
                     <span>Total</span>
                     <span className="text-primary text-lg" data-testid="text-total-cotizacion">
-                      {formatMXN(total)}
+                      {formatMoneda(total)}
                     </span>
                   </div>
                 </div>
@@ -281,7 +279,7 @@ export default function CotizacionDetalle() {
               </CardHeader>
               <CardContent>
                 <p className="text-3xl font-bold text-primary" data-testid="text-total-panel">
-                  {formatMXN(total)}
+                  {formatMoneda(total)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {itemsConDetalle.length} tipo{itemsConDetalle.length !== 1 ? "s" : ""} de postre

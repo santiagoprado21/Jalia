@@ -6,10 +6,13 @@ import { z } from "zod";
 import { Plus, Trash2, ArrowLeft, Calculator } from "lucide-react";
 import { Link } from "wouter";
 import { useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
+import { formatMoneda } from "@/lib/moneda";
 import { useToast } from "@/hooks/use-toast";
 import { CATEGORIAS } from "@/types";
 import type { VarianteReceta } from "@/types";
 import VariantesEditor from "@/components/VariantesEditor";
+import PrecioDesglose from "@/components/PrecioDesglose";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,13 +24,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 
 const schema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio"),
   categoria: z.string().min(1, "Selecciona una categoria"),
   porciones: z.coerce.number().min(1, "Debe producir al menos 1 porcion"),
   costosFijos: z.coerce.number().min(0),
+  costosVariables: z.coerce.number().min(0),
   margenGanancia: z.coerce.number().min(0).max(1000),
   margenMayorista: z.coerce.number().min(0).max(1000),
   ingredientesReceta: z.array(
@@ -54,6 +57,7 @@ export default function NuevaReceta() {
       categoria: "",
       porciones: 1,
       costosFijos: 0,
+      costosVariables: 0,
       margenGanancia: 30,
       margenMayorista: 0,
       ingredientesReceta: [],
@@ -75,6 +79,7 @@ export default function NuevaReceta() {
       porciones: values.porciones || 1,
       ingredientesReceta: values.ingredientesReceta,
       costosFijos: values.costosFijos || 0,
+      costosVariables: values.costosVariables || 0,
       margenGanancia: values.margenGanancia || 0,
       margenMayorista: values.margenMayorista || 0,
       fechaCreacion: "",
@@ -84,13 +89,10 @@ export default function NuevaReceta() {
 
   const calc = calcLive();
 
-  const formatMXN = (n: number) =>
-    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
-
   const recetaBase = {
     id: "", nombre: values.nombre, categoria: values.categoria,
     porciones: values.porciones || 1, ingredientesReceta: values.ingredientesReceta,
-    costosFijos: values.costosFijos || 0, margenGanancia: values.margenGanancia || 0,
+    costosFijos: values.costosFijos || 0, costosVariables: values.costosVariables || 0, margenGanancia: values.margenGanancia || 0,
     fechaCreacion: "", variantes,
   };
 
@@ -243,6 +245,7 @@ export default function NuevaReceta() {
                     </div>
                   )}
 
+                  <ScrollArea className="max-h-72 pr-3">
                   <div className="space-y-3">
                     {fields.map((field, index) => (
                       <div key={field.id} className="flex items-end gap-2">
@@ -261,7 +264,7 @@ export default function NuevaReceta() {
                                 <SelectContent>
                                   {ingredientes.map((ing) => (
                                     <SelectItem key={ing.id} value={ing.id}>
-                                      {ing.nombre} ({new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(ing.costoPorUnidad)}/{ing.unidad})
+                                      {ing.nombre} ({formatMoneda(ing.costoPorUnidad)}/{ing.unidad})
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -306,10 +309,10 @@ export default function NuevaReceta() {
                       </div>
                     ))}
                   </div>
+                  </ScrollArea>
                 </CardContent>
               </Card>
 
-              {/* Variants */}
               <VariantesEditor
                 variantes={variantes}
                 onChange={setVariantes}
@@ -323,29 +326,54 @@ export default function NuevaReceta() {
                   <CardTitle className="font-serif text-lg">Costos y margen</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="costosFijos"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Costos fijos ($)</FormLabel>
-                        <p className="text-xs text-muted-foreground -mt-1">
-                          Empaque, gas, luz, transporte — todo junto en un estimado
-                        </p>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            placeholder="0.00"
-                            data-testid="input-costos-fijos"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="costosFijos"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Gastos fijos ($)</FormLabel>
+                          <p className="text-xs text-muted-foreground -mt-1">
+                            Empaque, gas, luz, transporte
+                          </p>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min={0}
+                              placeholder="0"
+                              data-testid="input-costos-fijos"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="costosVariables"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Gastos variables ($)</FormLabel>
+                          <p className="text-xs text-muted-foreground -mt-1">
+                            Decoración, toppings, extras por lote
+                          </p>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min={0}
+                              placeholder="0"
+                              data-testid="input-costos-variables"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -419,67 +447,14 @@ export default function NuevaReceta() {
                       Calculo en vivo
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Costo ingredientes</span>
-                      <span className="font-medium" data-testid="calc-costo-ingredientes">
-                        {formatMXN(calc.costoIngredientes)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Costos fijos</span>
-                      <span className="font-medium" data-testid="calc-costos-fijos">
-                        {formatMXN(calc.costoTotal - calc.costoIngredientes)}
-                      </span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Costo total</span>
-                      <span className="font-medium" data-testid="calc-costo-total">
-                        {formatMXN(calc.costoTotal)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Costo por porcion</span>
-                      <span className="font-medium" data-testid="calc-costo-porcion">
-                        {formatMXN(calc.costoPorPorcion)}
-                      </span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-foreground">Precio al detal</span>
-                      <span
-                        className="font-bold text-primary text-lg"
-                        data-testid="calc-precio-sugerido"
-                      >
-                        {formatMXN(calc.precioVentaSugerido)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Ganancia detal</span>
-                      <span className="font-medium text-green-700" data-testid="calc-ganancia-total">
-                        {formatMXN(calc.gananciaTotal)}
-                      </span>
-                    </div>
-                    {calc.precioMayorista !== undefined && calc.precioMayorista > 0 && (
-                      <>
-                        <Separator />
-                        <div className="flex justify-between">
-                          <span className="font-semibold text-foreground">Precio mayorista</span>
-                          <span className="font-bold text-blue-700 text-lg" data-testid="calc-precio-mayorista">
-                            {formatMXN(calc.precioMayorista)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Ganancia mayorista</span>
-                          <span className="font-medium text-blue-600">
-                            {formatMXN(calc.gananciaMayorista ?? 0)}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                    <p className="text-xs text-muted-foreground pt-2">
-                      El precio se actualiza automaticamente mientras llenas el formulario.
+                  <CardContent>
+                    <PrecioDesglose
+                      calc={calc}
+                      margenGanancia={values.margenGanancia || 0}
+                      margenMayorista={values.margenMayorista || 0}
+                    />
+                    <p className="text-xs text-muted-foreground pt-3">
+                      El precio se actualiza automáticamente mientras llenas el formulario.
                     </p>
                   </CardContent>
                 </Card>

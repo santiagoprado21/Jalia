@@ -20,6 +20,8 @@ const LLAVES = [
   { key: "postres_ingredientes", label: "Ingredientes",  emoji: "🧈" },
   { key: "postres_cotizaciones", label: "Cotizaciones",  emoji: "📋" },
   { key: "postres_ventas",       label: "Ventas (caja)", emoji: "💰" },
+  { key: "postres_lista_compras", label: "Lista de compras", emoji: "🛒" },
+  { key: "postres_consignaciones", label: "Cartera", emoji: "👜" },
 ];
 
 function leerDatos() {
@@ -203,6 +205,7 @@ export default function Respaldo() {
               <p className="text-sm text-muted-foreground">
                 Descarga un archivo <code className="bg-muted px-1 rounded text-xs">.json</code> con todas tus
                 recetas, ingredientes, cotizaciones y ventas. Guárdalo en Google Drive, WhatsApp o donde prefieras.
+                Incluye también lista de compras y cartera.
               </p>
               <Button onClick={exportar} className="w-full gap-2" data-testid="button-exportar-respaldo">
                 <Download className="w-4 h-4" />

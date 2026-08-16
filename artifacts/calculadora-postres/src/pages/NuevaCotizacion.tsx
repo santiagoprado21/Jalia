@@ -5,6 +5,7 @@ import { z } from "zod";
 import { ArrowLeft, Plus, Trash2, FileDown } from "lucide-react";
 import { Link } from "wouter";
 import { useCotizaciones, useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
+import { formatMoneda } from "@/lib/moneda";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,9 +69,6 @@ export default function NuevaCotizacion() {
   }).filter(Boolean) as { nombre: string; precioUnit: number; cantidad: number; subtotal: number }[];
 
   const total = resumen.reduce((s, r) => s + r.subtotal, 0);
-
-  const formatMXN = (n: number) =>
-    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
 
   function onSubmit(values: FormValues) {
     const nueva = agregarCotizacion({
@@ -215,7 +213,7 @@ export default function NuevaCotizacion() {
                                     const c = calcularPrecio(r, ingredientes);
                                     return (
                                       <SelectItem key={r.id} value={r.id}>
-                                        {r.nombre} — {formatMXN(c.precioVentaSugerido)}/pieza
+                                        {r.nombre} — {formatMoneda(c.precioVentaSugerido)}/pieza
                                       </SelectItem>
                                     );
                                   })}
@@ -284,7 +282,7 @@ export default function NuevaCotizacion() {
                         <span className="text-muted-foreground truncate pr-2">
                           {r.cantidad}x {r.nombre}
                         </span>
-                        <span className="font-medium shrink-0">{formatMXN(r.subtotal)}</span>
+                        <span className="font-medium shrink-0">{formatMoneda(r.subtotal)}</span>
                       </div>
                     ))}
                     {resumen.length > 0 && (
@@ -293,7 +291,7 @@ export default function NuevaCotizacion() {
                         <div className="flex justify-between">
                           <span className="font-semibold text-foreground">Total</span>
                           <span className="font-bold text-primary text-lg" data-testid="calc-total-cotizacion">
-                            {formatMXN(total)}
+                            {formatMoneda(total)}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground pt-1">

@@ -3,17 +3,14 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import type { Receta, Ingrediente, Cotizacion, VentaDiaria } from "@/types";
 import { calcularPrecio } from "@/hooks/use-data";
-import { formatSemana, getDiasSemana } from "@/lib/semana";
+import { formatMoneda, LOCALE } from "@/lib/moneda";
+import { formatSemana, getDiasSemana, formatMes, getFechasMes } from "@/lib/semana";
 
 const NEGOCIO = "JALIA";
 
-function formatMXN(n: number) {
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
-}
-
 export function exportarPDF(recetas: Receta[], ingredientes: Ingrediente[]) {
   const doc = new jsPDF();
-  const fecha = new Date().toLocaleDateString("es-MX", {
+  const fecha = new Date().toLocaleDateString(LOCALE, {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -39,12 +36,13 @@ export function exportarPDF(recetas: Receta[], ingredientes: Ingrediente[]) {
       r.nombre,
       r.categoria,
       r.porciones.toString(),
-      formatMXN(c.costoIngredientes),
-      formatMXN(c.costoTotal - c.costoIngredientes),
-      formatMXN(c.costoPorPorcion),
+      formatMoneda(c.costoIngredientes),
+      formatMoneda(c.costosFijos),
+      formatMoneda(c.costosVariables),
+      formatMoneda(c.costoPorPorcion),
       `${r.margenGanancia}%`,
-      formatMXN(c.precioVentaSugerido),
-      formatMXN(c.gananciaTotal),
+      formatMoneda(c.precioVentaSugerido),
+      formatMoneda(c.gananciaTotal),
     ];
   });
 
@@ -56,7 +54,8 @@ export function exportarPDF(recetas: Receta[], ingredientes: Ingrediente[]) {
         "Categoria",
         "Porciones",
         "Costo ing.",
-        "Costos fijos",
+        "Gastos fijos",
+        "Gastos var.",
         "Costo/porc.",
         "Margen",
         "Precio sugerido",
@@ -86,7 +85,8 @@ export function exportarExcel(recetas: Receta[], ingredientes: Ingrediente[]) {
       Categoria: r.categoria,
       Porciones: r.porciones,
       "Costo ingredientes": c.costoIngredientes,
-      "Costos fijos": c.costoTotal - c.costoIngredientes,
+      "Gastos fijos": c.costosFijos,
+      "Gastos variables": c.costosVariables,
       "Costo total": c.costoTotal,
       "Costo por porcion": c.costoPorPorcion,
       "Margen (%)": r.margenGanancia,
@@ -124,14 +124,14 @@ export function exportarCotizacionPDF(
 ) {
   const doc = new jsPDF();
 
-  const fechaCreacion = new Date(cotizacion.fechaCreacion).toLocaleDateString("es-MX", {
+  const fechaCreacion = new Date(cotizacion.fechaCreacion).toLocaleDateString(LOCALE, {
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
 
   const fechaEntrega = cotizacion.fechaEntrega
-    ? new Date(cotizacion.fechaEntrega + "T12:00:00").toLocaleDateString("es-MX", {
+    ? new Date(cotizacion.fechaEntrega + "T12:00:00").toLocaleDateString(LOCALE, {
         day: "2-digit",
         month: "long",
         year: "numeric",
@@ -206,8 +206,8 @@ export function exportarCotizacionPDF(
     return [
       receta.nombre,
       item.cantidad.toString(),
-      formatMXN(calc.precioVentaSugerido),
-      formatMXN(calc.precioVentaSugerido * item.cantidad),
+      formatMoneda(calc.precioVentaSugerido),
+      formatMoneda(calc.precioVentaSugerido * item.cantidad),
     ];
   });
 
@@ -222,7 +222,7 @@ export function exportarCotizacionPDF(
     startY,
     head: [["Postre", "Cantidad", "Precio unitario", "Subtotal"]],
     body: rows,
-    foot: [["", "", "TOTAL", formatMXN(total)]],
+    foot: [["", "", "TOTAL", formatMoneda(total)]],
     headStyles: {
       fillColor: [60, 25, 10],
       textColor: [255, 248, 240],
@@ -255,6 +255,123 @@ export function exportarCotizacionPDF(
   doc.save(`JALIA_cotizacion_${cotizacion.nombreCliente.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
+export function exportarCuadreMensualPDF(
+  anio: number,
+  mes: number,
+  ventas: VentaDiaria[],
+  recetas: Receta[],
+  ingredientes: Ingrediente[]
+) {
+  const doc = new jsPDF();
+  const dias = getFechasMes(anio, mes);
+  const ventasMes = ventas.filter((v) => {
+    const d = new Date(v.fecha + "T12:00:00");
+    return d.getFullYear() === anio && d.getMonth() === mes;
+  });
+
+  function totalesDia(fecha: string) {
+    const venta = ventasMes.find((v) => v.fecha === fecha);
+    if (!venta || venta.items.length === 0) return { ingresos: 0, costos: 0, ganancia: 0, unidades: 0 };
+    let ingresos = 0, costos = 0, unidades = 0;
+    venta.items.forEach((item) => {
+      const receta = recetas.find((r) => r.id === item.recetaId);
+      ingresos += item.precioVenta * item.cantidad;
+      unidades += item.cantidad;
+      if (receta) costos += calcularPrecio(receta, ingredientes).costoPorPorcion * item.cantidad;
+    });
+    return { ingresos, costos, ganancia: ingresos - costos, unidades };
+  }
+
+  const totalMes = dias.reduce(
+    (acc, f) => {
+      const t = totalesDia(f);
+      return { ingresos: acc.ingresos + t.ingresos, costos: acc.costos + t.costos, ganancia: acc.ganancia + t.ganancia, unidades: acc.unidades + t.unidades };
+    },
+    { ingresos: 0, costos: 0, ganancia: 0, unidades: 0 }
+  );
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.setTextColor(60, 25, 10);
+  doc.text(NEGOCIO, 14, 20);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(120, 80, 60);
+  doc.text("Cuadre de Caja Mensual", 14, 28);
+
+  doc.setFontSize(9);
+  doc.setTextColor(160, 130, 110);
+  doc.text(`Periodo: ${formatMes(anio, mes)}`, 14, 35);
+  doc.text(`Generado el ${new Date().toLocaleDateString(LOCALE, { day: "2-digit", month: "long", year: "numeric" })}`, 14, 41);
+
+  doc.setDrawColor(220, 195, 175);
+  doc.setFillColor(255, 248, 240);
+  doc.roundedRect(14, 47, 182, 28, 3, 3, "FD");
+
+  const summaryItems = [
+    { label: "Ingresos", value: formatMoneda(totalMes.ingresos) },
+    { label: "Costos est.", value: formatMoneda(totalMes.costos) },
+    { label: "Ganancia", value: formatMoneda(totalMes.ganancia) },
+    { label: "Unidades", value: totalMes.unidades.toString() },
+    { label: "Margen", value: totalMes.ingresos > 0 ? `${Math.round((totalMes.ganancia / totalMes.ingresos) * 100)}%` : "—" },
+  ];
+  const colW = 182 / summaryItems.length;
+  summaryItems.forEach(({ label, value }, i) => {
+    const x = 14 + i * colW + colW / 2;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(140, 100, 80);
+    doc.text(label, x, 56, { align: "center" });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(60, 25, 10);
+    doc.text(value, x, 63, { align: "center" });
+  });
+
+  const rowsDias = ventasMes
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))
+    .map((venta) => {
+      const t = totalesDia(venta.fecha);
+      const d = new Date(venta.fecha + "T12:00:00");
+      const fechaStr = d.toLocaleDateString(LOCALE, { weekday: "short", day: "2-digit", month: "short" });
+      return [
+        fechaStr,
+        t.unidades.toString(),
+        formatMoneda(t.ingresos),
+        formatMoneda(t.costos),
+        formatMoneda(t.ganancia),
+      ];
+    });
+
+  autoTable(doc, {
+    startY: 82,
+    head: [["Fecha cuadre", "Unidades", "Ingresos", "Costos est.", "Ganancia"]],
+    body: rowsDias.length > 0 ? rowsDias : [["Sin cuadres registrados", "—", "—", "—", "—"]],
+    foot: [["TOTAL MES", totalMes.unidades.toString(), formatMoneda(totalMes.ingresos), formatMoneda(totalMes.costos), formatMoneda(totalMes.ganancia)]],
+    headStyles: { fillColor: [60, 25, 10], textColor: [255, 248, 240], fontStyle: "bold", fontSize: 9 },
+    bodyStyles: { fontSize: 9, textColor: [40, 20, 10] },
+    footStyles: { fillColor: [255, 240, 225], textColor: [60, 25, 10], fontStyle: "bold", fontSize: 9 },
+    alternateRowStyles: { fillColor: [255, 250, 245] },
+    columnStyles: {
+      0: { cellWidth: 52 },
+      1: { halign: "center", cellWidth: 26 },
+      2: { halign: "right" },
+      3: { halign: "right" },
+      4: { halign: "right" },
+    },
+    styles: { cellPadding: 3.5 },
+  });
+
+  const pageH = doc.internal.pageSize.height;
+  doc.setFontSize(8);
+  doc.setTextColor(180, 150, 130);
+  doc.text(`${NEGOCIO} — Cuadre de caja mensual`, 14, pageH - 10);
+
+  doc.save(`JALIA_cuadre_${anio}-${String(mes + 1).padStart(2, "0")}.pdf`);
+}
+
+/** @deprecated Usar exportarCuadreMensualPDF */
 export function exportarCuadreSemanalPDF(
   lunesISO: string,
   ventas: VentaDiaria[],
@@ -297,7 +414,7 @@ export function exportarCuadreSemanalPDF(
   doc.setFontSize(9);
   doc.setTextColor(160, 130, 110);
   doc.text(`Semana: ${formatSemana(lunesISO)}`, 14, 35);
-  doc.text(`Generado el ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`, 14, 41);
+  doc.text(`Generado el ${new Date().toLocaleDateString(LOCALE, { day: "2-digit", month: "long", year: "numeric" })}`, 14, 41);
 
   // --- Summary box ---
   doc.setDrawColor(220, 195, 175);
@@ -305,9 +422,9 @@ export function exportarCuadreSemanalPDF(
   doc.roundedRect(14, 47, 182, 28, 3, 3, "FD");
 
   const summaryItems = [
-    { label: "Ingresos", value: formatMXN(totalSemana.ingresos) },
-    { label: "Costos est.", value: formatMXN(totalSemana.costos) },
-    { label: "Ganancia", value: formatMXN(totalSemana.ganancia) },
+    { label: "Ingresos", value: formatMoneda(totalSemana.ingresos) },
+    { label: "Costos est.", value: formatMoneda(totalSemana.costos) },
+    { label: "Ganancia", value: formatMoneda(totalSemana.ganancia) },
     { label: "Unidades", value: totalSemana.unidades.toString() },
     { label: "Margen", value: totalSemana.ingresos > 0 ? `${Math.round((totalSemana.ganancia / totalSemana.ingresos) * 100)}%` : "—" },
   ];
@@ -328,13 +445,13 @@ export function exportarCuadreSemanalPDF(
   const rowsDias = dias.map((fecha, i) => {
     const t = totalesDia(fecha);
     const d = new Date(fecha + "T12:00:00");
-    const fechaStr = d.toLocaleDateString("es-MX", { day: "2-digit", month: "short" });
+    const fechaStr = d.toLocaleDateString(LOCALE, { day: "2-digit", month: "short" });
     return [
       `${DIAS_NOMBRES[i]} ${fechaStr}`,
       t.unidades > 0 ? t.unidades.toString() : "—",
-      t.ingresos > 0 ? formatMXN(t.ingresos) : "—",
-      t.costos > 0 ? formatMXN(t.costos) : "—",
-      t.ganancia > 0 ? formatMXN(t.ganancia) : "—",
+      t.ingresos > 0 ? formatMoneda(t.ingresos) : "—",
+      t.costos > 0 ? formatMoneda(t.costos) : "—",
+      t.ganancia > 0 ? formatMoneda(t.ganancia) : "—",
     ];
   });
 
@@ -342,7 +459,7 @@ export function exportarCuadreSemanalPDF(
     startY: 82,
     head: [["Día", "Unidades", "Ingresos", "Costos est.", "Ganancia"]],
     body: rowsDias,
-    foot: [["TOTAL SEMANA", totalSemana.unidades.toString(), formatMXN(totalSemana.ingresos), formatMXN(totalSemana.costos), formatMXN(totalSemana.ganancia)]],
+    foot: [["TOTAL SEMANA", totalSemana.unidades.toString(), formatMoneda(totalSemana.ingresos), formatMoneda(totalSemana.costos), formatMoneda(totalSemana.ganancia)]],
     headStyles: { fillColor: [60, 25, 10], textColor: [255, 248, 240], fontStyle: "bold", fontSize: 9 },
     bodyStyles: { fontSize: 9, textColor: [40, 20, 10] },
     footStyles: { fillColor: [255, 240, 225], textColor: [60, 25, 10], fontStyle: "bold", fontSize: 9 },
@@ -384,7 +501,7 @@ export function exportarCuadreSemanalPDF(
     autoTable(doc, {
       startY: startY2 + 4,
       head: [["Postre", "Unidades", "Ingresos", "Costos est.", "Ganancia"]],
-      body: mejores.map((p) => [p.nombre, p.unidades.toString(), formatMXN(p.ingresos), formatMXN(p.costos), formatMXN(p.ingresos - p.costos)]),
+      body: mejores.map((p) => [p.nombre, p.unidades.toString(), formatMoneda(p.ingresos), formatMoneda(p.costos), formatMoneda(p.ingresos - p.costos)]),
       headStyles: { fillColor: [90, 45, 20], textColor: [255, 248, 240], fontStyle: "bold", fontSize: 9 },
       bodyStyles: { fontSize: 9, textColor: [40, 20, 10] },
       alternateRowStyles: { fillColor: [255, 250, 245] },

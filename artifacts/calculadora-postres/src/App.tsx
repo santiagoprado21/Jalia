@@ -12,6 +12,8 @@ import NuevaCotizacion from "@/pages/NuevaCotizacion";
 import CotizacionDetalle from "@/pages/CotizacionDetalle";
 import CuadreCaja from "@/pages/CuadreCaja";
 import RegistrarVenta from "@/pages/RegistrarVenta";
+import ListaCompras from "@/pages/ListaCompras";
+import Cartera from "@/pages/Cartera";
 import Respaldo from "@/pages/Respaldo";
 import NotFound from "@/pages/not-found";
 
@@ -30,6 +32,8 @@ function Router() {
         <Route path="/cotizacion/:id" component={CotizacionDetalle} />
         <Route path="/caja" component={CuadreCaja} />
         <Route path="/caja/venta/:fecha" component={RegistrarVenta} />
+        <Route path="/lista-compras" component={ListaCompras} />
+        <Route path="/cartera" component={Cartera} />
         <Route path="/respaldo" component={Respaldo} />
         <Route component={NotFound} />
       </Switch>

@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { PlusCircle, FileText, Phone, Calendar, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCotizaciones, useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
+import { formatMoneda, LOCALE } from "@/lib/moneda";
 import { ESTADOS_COTIZACION } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,9 +11,6 @@ export default function Cotizaciones() {
   const { cotizaciones, cambiarEstado } = useCotizaciones();
   const { recetas } = useRecetas();
   const { ingredientes } = useIngredientes();
-
-  const formatMXN = (n: number) =>
-    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
 
   function totalCotizacion(c: (typeof cotizaciones)[0]) {
     return c.items.reduce((sum, item) => {
@@ -76,7 +74,7 @@ export default function Cotizaciones() {
           {sorted.map((c, i) => {
             const total = totalCotizacion(c);
             const estado = ESTADOS_COTIZACION.find((e) => e.value === c.estado);
-            const fecha = new Date(c.fechaCreacion).toLocaleDateString("es-MX", {
+            const fecha = new Date(c.fechaCreacion).toLocaleDateString(LOCALE, {
               day: "2-digit",
               month: "short",
               year: "numeric",
@@ -117,7 +115,7 @@ export default function Cotizaciones() {
                             {c.fechaEntrega && (
                               <span className="flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
-                                {new Date(c.fechaEntrega + "T12:00:00").toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
+                                {new Date(c.fechaEntrega + "T12:00:00").toLocaleDateString(LOCALE, { day: "2-digit", month: "short" })}
                               </span>
                             )}
                           </div>
@@ -127,7 +125,7 @@ export default function Cotizaciones() {
                           <div className="text-right">
                             <p className="text-xs text-muted-foreground">Total</p>
                             <p className="font-bold text-primary text-lg" data-testid={`text-total-${c.id}`}>
-                              {formatMXN(total)}
+                              {formatMoneda(total)}
                             </p>
                           </div>
                           <ChevronRight className="w-4 h-4 text-muted-foreground" />

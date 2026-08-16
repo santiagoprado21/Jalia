@@ -1,11 +1,13 @@
 import { Link, useLocation } from "wouter";
-import { LayoutGrid, Package, PlusCircle, ChefHat, FileText, Calculator, HardDriveDownload } from "lucide-react";
+import { LayoutGrid, Package, PlusCircle, ChefHat, FileText, Calculator, HardDriveDownload, ShoppingCart, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "Mis Recetas", icon: LayoutGrid },
   { href: "/cotizaciones", label: "Cotizaciones", icon: FileText },
   { href: "/caja", label: "Cuadre de Caja", icon: Calculator },
+  { href: "/cartera", label: "Cartera", icon: Wallet },
+  { href: "/lista-compras", label: "Lista de compras", icon: ShoppingCart },
   { href: "/ingredientes", label: "Ingredientes", icon: Package },
   { href: "/nueva-receta", label: "Nueva Receta", icon: PlusCircle },
 ];

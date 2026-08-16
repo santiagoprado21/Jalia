@@ -3,6 +3,7 @@ import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { VarianteReceta, IngredienteReceta, Ingrediente, Receta } from "@/types";
 import { calcularPrecioVariante } from "@/hooks/use-data";
+import { formatMoneda } from "@/lib/moneda";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,9 +24,6 @@ interface Props {
   recetaBase: Receta;
   disabled?: boolean;
 }
-
-const formatMXN = (n: number) =>
-  new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
 
 export default function VariantesEditor({ variantes, onChange, ingredientes, recetaBase, disabled }: Props) {
   const [expandida, setExpandida] = useState<string | null>(null);
@@ -157,7 +155,7 @@ export default function VariantesEditor({ variantes, onChange, ingredientes, rec
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground">Precio c/variante</p>
-                        <p className="font-bold text-primary text-sm">{formatMXN(calc.precioVentaSugerido)}</p>
+                        <p className="font-bold text-primary text-sm">{formatMoneda(calc.precioVentaSugerido)}</p>
                       </div>
                       {!disabled && (
                         <Button
@@ -264,7 +262,7 @@ export default function VariantesEditor({ variantes, onChange, ingredientes, rec
                                       <SelectContent>
                                         {ingredientes.map((i) => (
                                           <SelectItem key={i.id} value={i.id}>
-                                            {i.nombre} ({formatMXN(i.costoPorUnidad)}/{i.unidad})
+                                            {i.nombre} ({formatMoneda(i.costoPorUnidad)}/{i.unidad})
                                           </SelectItem>
                                         ))}
                                       </SelectContent>
@@ -328,7 +326,7 @@ export default function VariantesEditor({ variantes, onChange, ingredientes, rec
                                 <div className="flex justify-between">
                                   <span className="text-muted-foreground">Costo base por porción</span>
                                   <span className="font-medium">
-                                    {formatMXN((recetaBase.ingredientesReceta.reduce((s, ir) => {
+                                    {formatMoneda((recetaBase.ingredientesReceta.reduce((s, ir) => {
                                       const ing = ingredientes.find(i => i.id === ir.ingredienteId);
                                       return s + (ing ? ing.costoPorUnidad * ir.cantidad : 0);
                                     }, 0)) / basePorciones)}
@@ -339,25 +337,29 @@ export default function VariantesEditor({ variantes, onChange, ingredientes, rec
                                     Salsa por porción
                                     {variante.porcionesVariante ? ` (÷${extraPorciones})` : ""}
                                   </span>
-                                  <span className="font-medium">{formatMXN(extraCostoPorPorcion)}</span>
+                                  <span className="font-medium">{formatMoneda(extraCostoPorPorcion)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Costos fijos por porción</span>
-                                  <span className="font-medium">{formatMXN(recetaBase.costosFijos / basePorciones)}</span>
+                                  <span className="text-muted-foreground">Gastos fijos por porción</span>
+                                  <span className="font-medium">{formatMoneda((recetaBase.costosFijos ?? 0) / basePorciones)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Gastos variables por porción</span>
+                                  <span className="font-medium">{formatMoneda((recetaBase.costosVariables ?? 0) / basePorciones)}</span>
                                 </div>
                                 <Separator className="my-1" />
                                 <div className="flex justify-between">
                                   <span className="text-muted-foreground">Costo total por porción</span>
-                                  <span className="font-medium">{formatMXN(calc.costoPorPorcion)}</span>
+                                  <span className="font-medium">{formatMoneda(calc.costoPorPorcion)}</span>
                                 </div>
                                 <div className="flex justify-between font-semibold text-sm pt-1">
                                   <span className="text-foreground">Precio al detal</span>
-                                  <span className="text-primary">{formatMXN(calc.precioVentaSugerido)}</span>
+                                  <span className="text-primary">{formatMoneda(calc.precioVentaSugerido)}</span>
                                 </div>
                                 {calc.precioMayorista !== undefined && calc.precioMayorista > 0 && (
                                   <div className="flex justify-between font-semibold text-sm">
                                     <span className="text-foreground">Precio mayorista</span>
-                                    <span className="text-blue-700">{formatMXN(calc.precioMayorista)}</span>
+                                    <span className="text-blue-700">{formatMoneda(calc.precioMayorista)}</span>
                                   </div>
                                 )}
                               </div>

@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { PlusCircle, TrendingUp, DollarSign, ShoppingBag, ChevronLeft, ChevronRight, BarChart3, Pencil, Trash2, FileDown } from "lucide-react";
-import { motion } from "framer-motion";
+import { PlusCircle, TrendingUp, DollarSign, ShoppingBag, ChevronLeft, ChevronRight, BarChart3, Pencil, Trash2, FileDown, CalendarDays } from "lucide-react";
 import { useVentas, useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
-import { DIAS_SEMANA } from "@/types";
-import { getLunesDeSemana, toISODate, formatSemana, getDiasSemana, formatFecha } from "@/lib/semana";
+import { FORMAS_PAGO, type FormaPago } from "@/types";
+import { toISODate, formatMes, getDiasMes, formatFecha } from "@/lib/semana";
+import { formatMoneda } from "@/lib/moneda";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -18,67 +18,103 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { exportarCuadreSemanalPDF } from "@/lib/exportar";
+import { exportarCuadreMensualPDF } from "@/lib/exportar";
+
+const DIAS_CORTOS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+function calcularTotalesVenta(
+  venta: { items: { recetaId: string; cantidad: number; precioVenta: number; formaPago?: FormaPago }[] } | undefined,
+  recetas: ReturnType<typeof useRecetas>["recetas"],
+  ingredientes: ReturnType<typeof useIngredientes>["ingredientes"]
+) {
+  if (!venta || venta.items.length === 0) {
+    return { ingresos: 0, costos: 0, ganancia: 0, unidades: 0, pagos: { efectivo: 0, nequi: 0, llave: 0 } };
+  }
+
+  let ingresos = 0;
+  let costos = 0;
+  let unidades = 0;
+  const pagos: Record<FormaPago, number> = { efectivo: 0, nequi: 0, llave: 0 };
+
+  venta.items.forEach((item) => {
+    const receta = recetas.find((r) => r.id === item.recetaId);
+    const subtotal = item.precioVenta * item.cantidad;
+    ingresos += subtotal;
+    unidades += item.cantidad;
+    const forma: FormaPago = item.formaPago ?? "efectivo";
+    pagos[forma] += subtotal;
+    if (receta) {
+      costos += calcularPrecio(receta, ingredientes).costoPorPorcion * item.cantidad;
+    }
+  });
+
+  return { ingresos, costos, ganancia: ingresos - costos, unidades, pagos };
+}
 
 export default function CuadreCaja() {
-  const { ventas, getVentasSemana, eliminarVenta } = useVentas();
+  const { ventas, getVentasMes, eliminarVenta } = useVentas();
   const { recetas } = useRecetas();
   const { ingredientes } = useIngredientes();
 
-  const lunesHoy = toISODate(getLunesDeSemana(new Date()));
-  const [lunesActual, setLunesActual] = useState(lunesHoy);
+  const hoy = new Date();
+  const [anio, setAnio] = useState(hoy.getFullYear());
+  const [mes, setMes] = useState(hoy.getMonth());
+  const [fechaSeleccionada, setFechaSeleccionada] = useState<string | null>(toISODate(hoy));
   const [deleteDate, setDeleteDate] = useState<string | null>(null);
 
-  const diasSemana = getDiasSemana(lunesActual);
-  const ventasSemana = getVentasSemana(lunesActual);
+  const ventasMes = getVentasMes(anio, mes);
+  const diasMes = getDiasMes(anio, mes);
+  const hoyISO = toISODate(hoy);
 
-  function irSemanaAnterior() {
-    const d = new Date(lunesActual + "T12:00:00");
-    d.setDate(d.getDate() - 7);
-    setLunesActual(toISODate(d));
+  const fechasConVentas = new Set(ventasMes.map((v) => v.fecha));
+
+  function mesAnterior() {
+    if (mes === 0) {
+      setMes(11);
+      setAnio((a) => a - 1);
+    } else {
+      setMes((m) => m - 1);
+    }
   }
 
-  function irSemanaSiguiente() {
-    const d = new Date(lunesActual + "T12:00:00");
-    d.setDate(d.getDate() + 7);
-    setLunesActual(toISODate(d));
+  function mesSiguiente() {
+    if (mes === 11) {
+      setMes(0);
+      setAnio((a) => a + 1);
+    } else {
+      setMes((m) => m + 1);
+    }
   }
 
-  const formatMXN = (n: number) =>
-    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
-
-  function calcularTotalesDia(fecha: string) {
-    const venta = ventasSemana.find((v) => v.fecha === fecha);
-    if (!venta || venta.items.length === 0) return { ingresos: 0, costos: 0, ganancia: 0, unidades: 0 };
-    let ingresos = 0, costos = 0, unidades = 0;
-    venta.items.forEach((item) => {
-      const receta = recetas.find((r) => r.id === item.recetaId);
-      ingresos += item.precioVenta * item.cantidad;
-      unidades += item.cantidad;
-      if (receta) {
-        const calc = calcularPrecio(receta, ingredientes);
-        costos += calc.costoPorPorcion * item.cantidad;
-      }
-    });
-    return { ingresos, costos, ganancia: ingresos - costos, unidades };
+  function irMesActual() {
+    setAnio(hoy.getFullYear());
+    setMes(hoy.getMonth());
+    setFechaSeleccionada(hoyISO);
   }
 
-  const totalesSemana = diasSemana.reduce(
-    (acc, fecha) => {
-      const t = calcularTotalesDia(fecha);
+  const totalesMes = ventasMes.reduce(
+    (acc, venta) => {
+      const t = calcularTotalesVenta(venta, recetas, ingredientes);
       return {
         ingresos: acc.ingresos + t.ingresos,
         costos: acc.costos + t.costos,
         ganancia: acc.ganancia + t.ganancia,
         unidades: acc.unidades + t.unidades,
+        pagos: {
+          efectivo: acc.pagos.efectivo + t.pagos.efectivo,
+          nequi: acc.pagos.nequi + t.pagos.nequi,
+          llave: acc.pagos.llave + t.pagos.llave,
+        },
       };
     },
-    { ingresos: 0, costos: 0, ganancia: 0, unidades: 0 }
+    { ingresos: 0, costos: 0, ganancia: 0, unidades: 0, pagos: { efectivo: 0, nequi: 0, llave: 0 } }
   );
 
-  // Best sellers this week
+  const ventaSeleccionada = fechaSeleccionada ? ventasMes.find((v) => v.fecha === fechaSeleccionada) : undefined;
+  const totalesDia = calcularTotalesVenta(ventaSeleccionada, recetas, ingredientes);
+
   const ventasMap: Record<string, { nombre: string; unidades: number; ingresos: number }> = {};
-  ventasSemana.forEach((v) => {
+  ventasMes.forEach((v) => {
     v.items.forEach((item) => {
       const receta = recetas.find((r) => r.id === item.recetaId);
       if (!receta) return;
@@ -91,70 +127,64 @@ export default function CuadreCaja() {
   });
   const mejoresProductos = Object.values(ventasMap).sort((a, b) => b.ingresos - a.ingresos).slice(0, 5);
 
-  const hoy = toISODate(new Date());
+  const esMesActual = anio === hoy.getFullYear() && mes === hoy.getMonth();
 
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="font-serif text-3xl font-bold text-foreground">Cuadre de Caja</h2>
-          <p className="text-muted-foreground mt-1">Resumen semanal de ventas</p>
+          <p className="text-muted-foreground mt-1">
+            Calendario libre — registra el cuadre el día que prefieras (ej. lunes por ventas del fin de semana)
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
-            onClick={() => exportarCuadreSemanalPDF(lunesActual, ventas, recetas, ingredientes)}
+            onClick={() => exportarCuadreMensualPDF(anio, mes, ventas, recetas, ingredientes)}
             data-testid="button-exportar-cuadre-pdf"
             className="gap-2"
           >
             <FileDown className="w-4 h-4" />
             Exportar PDF
           </Button>
-          <Link href={`/caja/venta/${hoy}`}>
+          <Link href={`/caja/venta/${fechaSeleccionada ?? hoyISO}`}>
             <Button data-testid="button-registrar-venta" className="gap-2">
               <PlusCircle className="w-4 h-4" />
-              Registrar venta
+              Registrar cuadre
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* Week navigator */}
       <div className="flex items-center justify-between mb-6 bg-card border border-border rounded-xl px-4 py-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={irSemanaAnterior}
-          data-testid="button-semana-anterior"
-        >
+        <Button variant="ghost" size="icon" onClick={mesAnterior} data-testid="button-mes-anterior">
           <ChevronLeft className="w-4 h-4" />
         </Button>
         <div className="text-center">
-          <p className="font-semibold text-foreground">{formatSemana(lunesActual)}</p>
-          {lunesActual === lunesHoy
-            ? <p className="text-xs text-primary font-medium">Semana actual</p>
-            : <button onClick={() => setLunesActual(lunesHoy)} className="text-xs text-muted-foreground hover:text-primary underline">Ir a semana actual</button>
-          }
+          <p className="font-semibold text-foreground flex items-center justify-center gap-2">
+            <CalendarDays className="w-4 h-4 text-primary" />
+            {formatMes(anio, mes)}
+          </p>
+          {!esMesActual ? (
+            <button onClick={irMesActual} className="text-xs text-muted-foreground hover:text-primary underline">
+              Ir al mes actual
+            </button>
+          ) : (
+            <p className="text-xs text-primary font-medium">Mes actual</p>
+          )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={irSemanaSiguiente}
-          disabled={lunesActual >= lunesHoy}
-          data-testid="button-semana-siguiente"
-        >
+        <Button variant="ghost" size="icon" onClick={mesSiguiente} data-testid="button-mes-siguiente">
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
         {[
-          { icon: DollarSign, label: "Ingresos", value: formatMXN(totalesSemana.ingresos), color: "text-primary", testId: "stat-ingresos" },
-          { icon: ShoppingBag, label: "Costos", value: formatMXN(totalesSemana.costos), color: "text-orange-600", testId: "stat-costos" },
-          { icon: TrendingUp, label: "Ganancia", value: formatMXN(totalesSemana.ganancia), color: "text-green-700", testId: "stat-ganancia" },
-          { icon: BarChart3, label: "Unidades", value: totalesSemana.unidades.toString(), color: "text-foreground", testId: "stat-unidades" },
+          { icon: DollarSign, label: "Ingresos del mes", value: formatMoneda(totalesMes.ingresos), color: "text-primary", testId: "stat-ingresos" },
+          { icon: ShoppingBag, label: "Costos", value: formatMoneda(totalesMes.costos), color: "text-orange-600", testId: "stat-costos" },
+          { icon: TrendingUp, label: "Ganancia", value: formatMoneda(totalesMes.ganancia), color: "text-green-700", testId: "stat-ganancia" },
+          { icon: BarChart3, label: "Unidades", value: totalesMes.unidades.toString(), color: "text-foreground", testId: "stat-unidades" },
         ].map(({ icon: Icon, label, value, color, testId }) => (
           <Card key={label} className="border-border">
             <CardContent className="pt-4 pb-3">
@@ -169,96 +199,133 @@ export default function CuadreCaja() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Daily breakdown */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="font-serif text-lg">Ventas por día</CardTitle>
+              <CardTitle className="font-serif text-lg">Calendario</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {diasSemana.map((fecha, i) => {
-                const t = calcularTotalesDia(fecha);
-                const venta = ventasSemana.find((v) => v.fecha === fecha);
-                const esHoy = fecha === hoy;
-                const esFuturo = fecha > hoy;
-                const nombre = DIAS_SEMANA[i];
+            <CardContent>
+              <div className="grid grid-cols-7 gap-1 mb-2">
+                {DIAS_CORTOS.map((d) => (
+                  <div key={d} className="text-center text-xs font-medium text-muted-foreground py-1">{d}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {diasMes.map((fecha, i) => {
+                  if (!fecha) {
+                    return <div key={`empty-${i}`} className="aspect-square" />;
+                  }
+                  const tieneVentas = fechasConVentas.has(fecha);
+                  const esHoy = fecha === hoyISO;
+                  const seleccionado = fecha === fechaSeleccionada;
 
-                return (
-                  <motion.div
-                    key={fecha}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.04 }}
-                    data-testid={`row-dia-${fecha}`}
-                    className={`flex items-center justify-between rounded-xl px-4 py-3 border transition-colors ${
-                      esHoy
-                        ? "border-primary/40 bg-primary/5"
-                        : esFuturo
-                        ? "border-border bg-muted/20 opacity-50"
-                        : t.ingresos > 0
-                        ? "border-border bg-card hover:border-primary/30"
-                        : "border-border bg-card opacity-70"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="w-16 shrink-0">
-                        <p className={`text-sm font-semibold ${esHoy ? "text-primary" : "text-foreground"}`}>
-                          {nombre}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(fecha + "T12:00:00").toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
-                        </p>
-                      </div>
-                      {t.ingresos > 0 ? (
-                        <div className="flex items-center gap-4 text-sm flex-1">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Ingresos</p>
-                            <p className="font-semibold text-primary">{formatMXN(t.ingresos)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Ganancia</p>
-                            <p className="font-semibold text-green-700">{formatMXN(t.ganancia)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Unidades</p>
-                            <p className="font-semibold text-foreground">{t.unidades}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground italic">
-                          {esFuturo ? "—" : "Sin ventas registradas"}
-                        </p>
+                  return (
+                    <button
+                      key={fecha}
+                      type="button"
+                      onClick={() => setFechaSeleccionada(fecha)}
+                      data-testid={`cal-dia-${fecha}`}
+                      className={`aspect-square rounded-lg text-sm flex flex-col items-center justify-center border transition-colors ${
+                        seleccionado
+                          ? "border-primary bg-primary text-primary-foreground font-bold"
+                          : esHoy
+                          ? "border-primary/40 bg-primary/5 font-semibold"
+                          : tieneVentas
+                          ? "border-green-300 bg-green-50 hover:border-primary/30"
+                          : "border-border hover:border-primary/20 hover:bg-muted/40"
+                      }`}
+                    >
+                      <span>{parseInt(fecha.slice(8), 10)}</span>
+                      {tieneVentas && !seleccionado && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-600 mt-0.5" />
                       )}
-                    </div>
-                    {!esFuturo && (
-                      <div className="flex items-center gap-1 shrink-0 ml-2">
-                        <Link href={`/caja/venta/${fecha}`}>
-                          <Button variant="ghost" size="icon" data-testid={`button-editar-venta-${fecha}`}>
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                        </Link>
-                        {venta && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteDate(fecha)}
-                            data-testid={`button-eliminar-venta-${fecha}`}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
+                    </button>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
+
+          {fechaSeleccionada && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="font-serif text-lg capitalize">
+                  {formatFecha(fechaSeleccionada)}
+                </CardTitle>
+                <div className="flex items-center gap-1">
+                  <Link href={`/caja/venta/${fechaSeleccionada}`}>
+                    <Button variant="ghost" size="icon" data-testid={`button-editar-venta-${fechaSeleccionada}`}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                  </Link>
+                  {ventaSeleccionada && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeleteDate(fechaSeleccionada)}
+                      data-testid={`button-eliminar-venta-${fechaSeleccionada}`}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {totalesDia.ingresos > 0 ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Ingresos</p>
+                        <p className="font-semibold text-primary">{formatMoneda(totalesDia.ingresos)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Ganancia</p>
+                        <p className="font-semibold text-green-700">{formatMoneda(totalesDia.ganancia)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Unidades</p>
+                        <p className="font-semibold">{totalesDia.unidades}</p>
+                      </div>
+                    </div>
+                    <Separator />
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Formas de pago</p>
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        {FORMAS_PAGO.map(({ value, label }) => (
+                          <div key={value} className="bg-muted/40 rounded-lg p-2 text-center">
+                            <p className="text-xs text-muted-foreground">{label}</p>
+                            <p className="font-semibold">{formatMoneda(totalesDia.pagos[value])}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic text-center py-4">
+                    Sin cuadre registrado. Puedes registrar aquí las ventas del fin de semana u otro periodo.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {/* Best sellers + margin */}
         <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif text-lg">Formas de pago (mes)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {FORMAS_PAGO.map(({ value, label }) => (
+                <div key={value} className="flex justify-between">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="font-semibold">{formatMoneda(totalesMes.pagos[value])}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="font-serif text-lg">Lo más vendido</CardTitle>
@@ -279,7 +346,7 @@ export default function CuadreCaja() {
                           <p className="text-xs text-muted-foreground">{p.unidades} uds.</p>
                         </div>
                       </div>
-                      <p className="text-sm font-semibold text-primary shrink-0">{formatMXN(p.ingresos)}</p>
+                      <p className="text-sm font-semibold text-primary shrink-0">{formatMoneda(p.ingresos)}</p>
                     </div>
                   ))}
                 </div>
@@ -289,29 +356,29 @@ export default function CuadreCaja() {
 
           <Card className="border-primary/20 bg-primary/5">
             <CardHeader>
-              <CardTitle className="font-serif text-base">Resumen semanal</CardTitle>
+              <CardTitle className="font-serif text-base">Resumen del mes</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Ingresos totales</span>
-                <span className="font-semibold text-primary">{formatMXN(totalesSemana.ingresos)}</span>
+                <span className="font-semibold text-primary">{formatMoneda(totalesMes.ingresos)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Costos estimados</span>
-                <span className="font-semibold text-orange-600">{formatMXN(totalesSemana.costos)}</span>
+                <span className="font-semibold text-orange-600">{formatMoneda(totalesMes.costos)}</span>
               </div>
               <Separator />
               <div className="flex justify-between">
                 <span className="font-semibold text-foreground">Ganancia neta</span>
                 <span className="font-bold text-green-700" data-testid="stat-ganancia-neta">
-                  {formatMXN(totalesSemana.ganancia)}
+                  {formatMoneda(totalesMes.ganancia)}
                 </span>
               </div>
-              {totalesSemana.ingresos > 0 && (
+              {totalesMes.ingresos > 0 && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Margen real</span>
                   <span className="font-semibold text-foreground">
-                    {Math.round((totalesSemana.ganancia / totalesSemana.ingresos) * 100)}%
+                    {Math.round((totalesMes.ganancia / totalesMes.ingresos) * 100)}%
                   </span>
                 </div>
               )}
@@ -325,7 +392,7 @@ export default function CuadreCaja() {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar registro</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteDate && `Se eliminaran las ventas del ${formatFecha(deleteDate)}. Esta accion no se puede deshacer.`}
+              {deleteDate && `Se eliminarán las ventas del ${formatFecha(deleteDate)}. Esta acción no se puede deshacer.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -6,6 +6,7 @@ import { useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { exportarPDF, exportarExcel } from "@/lib/exportar";
+import { formatMoneda } from "@/lib/moneda";
 
 const categoryColors: Record<string, string> = {
   Pasteles: "bg-rose-100 text-rose-700",
@@ -28,9 +29,6 @@ export default function Dashboard() {
     receta: r,
     calc: calcularPrecio(r, ingredientes),
   }));
-
-  const formatMXN = (n: number) =>
-    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
 
   function handleExportPDF() {
     setExportando("pdf");
@@ -111,14 +109,14 @@ export default function Dashboard() {
               icon: DollarSign,
               label: "Precio promedio",
               value: recetasConCalculo.reduce((s, { calc }) => s + calc.precioVentaSugerido, 0) / recetasConCalculo.length,
-              display: formatMXN(recetasConCalculo.reduce((s, { calc }) => s + calc.precioVentaSugerido, 0) / recetasConCalculo.length),
+              display: formatMoneda(recetasConCalculo.reduce((s, { calc }) => s + calc.precioVentaSugerido, 0) / recetasConCalculo.length),
               testId: "stat-precio-promedio",
             },
             {
               icon: TrendingUp,
               label: "Ganancia total estimada",
               value: recetasConCalculo.reduce((s, { calc }) => s + calc.gananciaTotal, 0),
-              display: formatMXN(recetasConCalculo.reduce((s, { calc }) => s + calc.gananciaTotal, 0)),
+              display: formatMoneda(recetasConCalculo.reduce((s, { calc }) => s + calc.gananciaTotal, 0)),
               testId: "stat-ganancia-total",
             },
           ].map(({ icon: Icon, label, display, testId }) => (
@@ -218,7 +216,7 @@ export default function Dashboard() {
                             className="font-semibold text-sm text-foreground"
                             data-testid={`text-costo-${receta.id}`}
                           >
-                            {formatMXN(calc.costoPorPorcion)}
+                            {formatMoneda(calc.costoPorPorcion)}
                           </p>
                         </div>
                         <div className="bg-primary/10 rounded-lg p-3">
@@ -227,21 +225,21 @@ export default function Dashboard() {
                             className="font-semibold text-sm text-primary"
                             data-testid={`text-precio-${receta.id}`}
                           >
-                            {formatMXN(calc.precioVentaSugerido)}
+                            {formatMoneda(calc.precioVentaSugerido)}
                           </p>
                         </div>
                         {calc.precioMayorista && calc.precioMayorista > 0 && (
                           <div className="bg-blue-50 rounded-lg p-3">
                             <p className="text-xs text-muted-foreground mb-0.5">Mayorista</p>
                             <p className="font-semibold text-sm text-blue-700">
-                              {formatMXN(calc.precioMayorista)}
+                              {formatMoneda(calc.precioMayorista)}
                             </p>
                           </div>
                         )}
                       </div>
                       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                         <span>Margen: {receta.margenGanancia}%</span>
-                        <span>Ganancia: {formatMXN(calc.gananciaTotal)}</span>
+                        <span>Ganancia: {formatMoneda(calc.gananciaTotal)}</span>
                       </div>
                     </CardContent>
                   </Card>

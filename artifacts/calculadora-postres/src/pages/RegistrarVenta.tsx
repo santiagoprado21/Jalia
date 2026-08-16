@@ -5,6 +5,8 @@ import { z } from "zod";
 import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
 import { useVentas, useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
 import { formatFecha } from "@/lib/semana";
+import { formatMoneda, redondearPrecio } from "@/lib/moneda";
+import { FORMAS_PAGO } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +28,7 @@ const schema = z.object({
       recetaId: z.string().min(1, "Selecciona un postre"),
       cantidad: z.coerce.number().min(1, "Mínimo 1"),
       precioVenta: z.coerce.number().min(0, "Precio inválido"),
+      formaPago: z.enum(["efectivo", "nequi", "llave"]).default("efectivo"),
     })
   ).min(1, "Agrega al menos un postre vendido"),
 });
@@ -45,10 +48,16 @@ export default function RegistrarVenta() {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: ventaExistente
-      ? { notas: ventaExistente.notas ?? "", items: ventaExistente.items }
+      ? {
+          notas: ventaExistente.notas ?? "",
+          items: ventaExistente.items.map((item) => ({
+            ...item,
+            formaPago: item.formaPago ?? "efectivo",
+          })),
+        }
       : {
           notas: "",
-          items: [{ recetaId: "", cantidad: 1, precioVenta: 0 }],
+          items: [{ recetaId: "", cantidad: 1, precioVenta: 0, formaPago: "efectivo" }],
         },
   });
 
@@ -70,7 +79,7 @@ export default function RegistrarVenta() {
   const resumen = values.items.map((item) => {
     if (!item.recetaId || !item.cantidad) return null;
     const costo = getCostoPorcion(item.recetaId) * item.cantidad;
-    const ingreso = item.precioVenta * item.cantidad;
+    const ingreso = redondearPrecio(item.precioVenta) * item.cantidad;
     return { ingreso, costo, ganancia: ingreso - costo, unidades: item.cantidad };
   }).filter(Boolean) as { ingreso: number; costo: number; ganancia: number; unidades: number }[];
 
@@ -79,11 +88,26 @@ export default function RegistrarVenta() {
     { ingreso: 0, costo: 0, ganancia: 0, unidades: 0 }
   );
 
-  const formatMXN = (n: number) =>
-    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
+  const pagos = values.items.reduce(
+    (acc, item) => {
+      if (!item.recetaId || !item.cantidad) return acc;
+      const forma = item.formaPago ?? "efectivo";
+      acc[forma] += redondearPrecio(item.precioVenta) * item.cantidad;
+      return acc;
+    },
+    { efectivo: 0, nequi: 0, llave: 0 }
+  );
 
   function onSubmit(values: FormValues) {
-    guardarVenta({ fecha, items: values.items, notas: values.notas });
+    guardarVenta({
+      fecha,
+      items: values.items.map((item) => ({
+        ...item,
+        precioVenta: redondearPrecio(item.precioVenta),
+        formaPago: item.formaPago ?? "efectivo",
+      })),
+      notas: values.notas,
+    });
     setLocation("/caja");
   }
 
@@ -97,9 +121,12 @@ export default function RegistrarVenta() {
         </Link>
         <div>
           <h2 className="font-serif text-3xl font-bold text-foreground">
-            {ventaExistente ? "Editar ventas" : "Registrar ventas"}
+            {ventaExistente ? "Editar cuadre" : "Registrar cuadre"}
           </h2>
           <p className="text-muted-foreground mt-1 capitalize">{formatFecha(fecha)}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Puedes registrar aquí las ventas del fin de semana u otro periodo en la fecha que elijas.
+          </p>
         </div>
       </div>
 
@@ -114,7 +141,7 @@ export default function RegistrarVenta() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => append({ recetaId: "", cantidad: 1, precioVenta: 0 })}
+                    onClick={() => append({ recetaId: "", cantidad: 1, precioVenta: 0, formaPago: "efectivo" })}
                     data-testid="button-agregar-item-venta"
                     className="gap-1"
                   >
@@ -148,7 +175,7 @@ export default function RegistrarVenta() {
                                         f.onChange(v);
                                         const sugerido = getPrecioSugerido(v);
                                         if (sugerido > 0) {
-                                          form.setValue(`items.${index}.precioVenta`, Math.round(sugerido * 100) / 100);
+                                          form.setValue(`items.${index}.precioVenta`, sugerido);
                                         }
                                       }}
                                       value={f.value}
@@ -180,20 +207,15 @@ export default function RegistrarVenta() {
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-3 gap-3">
                               <FormField
                                 control={form.control}
                                 name={`items.${index}.cantidad`}
                                 render={({ field: f }) => (
                                   <FormItem>
-                                    <FormLabel className="text-xs">Cantidad vendida</FormLabel>
+                                    <FormLabel className="text-xs">Cantidad</FormLabel>
                                     <FormControl>
-                                      <Input
-                                        type="number"
-                                        min={1}
-                                        data-testid={`input-cantidad-venta-${index}`}
-                                        {...f}
-                                      />
+                                      <Input type="number" min={1} data-testid={`input-cantidad-venta-${index}`} {...f} />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
@@ -205,22 +227,38 @@ export default function RegistrarVenta() {
                                 render={({ field: f }) => (
                                   <FormItem>
                                     <FormLabel className="text-xs">
-                                      Precio real de venta ($)
+                                      Precio ($)
                                       {precioSugerido > 0 && (
                                         <span className="ml-1 text-primary font-normal">
-                                          — sugerido: {formatMXN(precioSugerido)}
+                                          — lista: {formatMoneda(precioSugerido)}
                                         </span>
                                       )}
                                     </FormLabel>
                                     <FormControl>
-                                      <Input
-                                        type="number"
-                                        step="0.01"
-                                        min={0}
-                                        data-testid={`input-precio-venta-${index}`}
-                                        {...f}
-                                      />
+                                      <Input type="number" step="1" min={0} data-testid={`input-precio-venta-${index}`} {...f} />
                                     </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.formaPago`}
+                                render={({ field: f }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Forma de pago</FormLabel>
+                                    <Select onValueChange={f.onChange} value={f.value}>
+                                      <FormControl>
+                                        <SelectTrigger data-testid={`select-pago-venta-${index}`}>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        {FORMAS_PAGO.map(({ value, label }) => (
+                                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                     <FormMessage />
                                   </FormItem>
                                 )}
@@ -241,10 +279,10 @@ export default function RegistrarVenta() {
                     name="notas"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Notas del día (opcional)</FormLabel>
+                        <FormLabel>Notas del cuadre (opcional)</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Observaciones, descuentos aplicados, gastos extra..."
+                            placeholder="Ej. ventas del sábado y domingo, descuentos, gastos extra..."
                             rows={2}
                             data-testid="textarea-notas-venta"
                             {...field}
@@ -259,11 +297,10 @@ export default function RegistrarVenta() {
 
               <Button type="submit" className="w-full gap-2" data-testid="button-guardar-venta">
                 <Save className="w-4 h-4" />
-                Guardar registro del día
+                Guardar cuadre
               </Button>
             </div>
 
-            {/* Live summary */}
             <div className="lg:col-span-1">
               <div className="sticky top-8">
                 <Card className="border-primary/20 bg-primary/5">
@@ -278,13 +315,13 @@ export default function RegistrarVenta() {
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Ingresos</span>
                       <span className="font-semibold text-primary" data-testid="calc-ingresos">
-                        {formatMXN(totales.ingreso)}
+                        {formatMoneda(totales.ingreso)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Costo estimado</span>
                       <span className="font-semibold text-orange-600" data-testid="calc-costo">
-                        {formatMXN(totales.costo)}
+                        {formatMoneda(totales.costo)}
                       </span>
                     </div>
                     <Separator />
@@ -294,7 +331,7 @@ export default function RegistrarVenta() {
                         className={`font-bold text-lg ${totales.ganancia >= 0 ? "text-green-700" : "text-destructive"}`}
                         data-testid="calc-ganancia"
                       >
-                        {formatMXN(totales.ganancia)}
+                        {formatMoneda(totales.ganancia)}
                       </span>
                     </div>
                     {totales.ingreso > 0 && (
@@ -305,8 +342,16 @@ export default function RegistrarVenta() {
                         </span>
                       </div>
                     )}
+                    <Separator />
+                    <p className="text-xs font-medium text-muted-foreground">Por forma de pago</p>
+                    {FORMAS_PAGO.map(({ value, label }) => (
+                      <div key={value} className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="font-medium">{formatMoneda(pagos[value])}</span>
+                      </div>
+                    ))}
                     <p className="text-xs text-muted-foreground pt-1">
-                      El precio sugerido se llena automáticamente cuando seleccionas un postre.
+                      El precio sugerido coincide con la lista de Mis Recetas.
                     </p>
                   </CardContent>
                 </Card>

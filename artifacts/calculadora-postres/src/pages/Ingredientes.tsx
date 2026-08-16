@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Plus, Pencil, Trash2, Package } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIngredientes } from "@/hooks/use-data";
+import { formatMoneda } from "@/lib/moneda";
 import { UNIDADES, type Ingrediente } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,9 +91,6 @@ export default function Ingredientes() {
     setDialogOpen(false);
   }
 
-  const formatMXN = (n: number) =>
-    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
-
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
@@ -154,7 +152,7 @@ export default function Ingredientes() {
                     <div>
                       <p className="font-medium text-foreground">{ing.nombre}</p>
                       <p className="text-xs text-muted-foreground">
-                        {formatMXN(ing.costoTotal)} por {ing.cantidadTotal} {ing.unidad}
+                        {formatMoneda(ing.costoTotal)} por {ing.cantidadTotal} {ing.unidad}
                       </p>
                     </div>
                   </div>
@@ -163,7 +161,7 @@ export default function Ingredientes() {
                   <div className="text-right">
                     <p className="text-xs text-muted-foreground">Costo por {ing.unidad}</p>
                     <p className="font-semibold text-primary text-sm" data-testid={`text-costo-unidad-${ing.id}`}>
-                      {formatMXN(ing.costoPorUnidad)}
+                      {formatMoneda(ing.costoPorUnidad)}
                     </p>
                   </div>
                   <div className="flex gap-1">
@@ -287,7 +285,7 @@ export default function Ingredientes() {
                 <div className="bg-primary/10 rounded-lg p-3 text-sm">
                   <span className="text-muted-foreground">Costo por {form.watch("unidad")}: </span>
                   <span className="font-semibold text-primary">
-                    {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(costoPorUnidad)}
+                    {formatMoneda(costoPorUnidad)}
                   </span>
                 </div>
               )}
