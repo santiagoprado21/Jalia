@@ -43,12 +43,17 @@ npx vercel --prod
 
 ## Config correcta del proyecto
 
+**Importante:** al crear el proyecto en Vercel, NO elijas `artifacts/api-server`. Ese folder es un backend Express que no se usa en producción (la app guarda todo en localStorage).
+
 | Campo | Valor |
 |-------|--------|
-| Root Directory | `.` (raíz del repo) |
+| Repo | `santiagoprado21/Jalia` |
+| Root Directory | `.` (raíz del repo, **dejar vacío**) |
 | Framework | Other |
 | Build Command | `pnpm --filter @workspace/calculadora-postres build` |
 | Output | `artifacts/calculadora-postres/dist/public` |
 | Install | `pnpm install --no-frozen-lockfile` |
 
 Estos valores ya están en `vercel.json` en la raíz.
+
+Si ya creaste un proyecto con Root Directory = `artifacts/api-server`, bórralo y crea uno nuevo con la raíz del repo, o cambia **Settings → General → Root Directory** a `.` (vacío).
