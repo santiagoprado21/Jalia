@@ -1,61 +1,44 @@
 # Deploy en Vercel
 
-## Si Vercel no detecta commits nuevos
+## Configuración obligatoria (lee esto primero)
 
-1. Entra a [vercel.com/dashboard](https://vercel.com/dashboard) → tu proyecto **Jalia**
-2. **Settings → Git**
-3. Verifica que diga: **Connected to `santiagoprado21/Jalia`**
-4. **Production Branch** debe ser **`main`** (no `master`)
-5. Si no está conectado, o está mal:
-   - **Connect Git Repository** → elige `santiagoprado21/Jalia`
-   - O **Disconnect** y vuelve a conectar
+En **Settings → General** del proyecto Vercel:
 
-### Permisos de GitHub
+| Campo | Valor correcto |
+|-------|----------------|
+| Root Directory | **vacío** (raíz del repo, NO `artifacts/api-server`) |
+| Output Directory | **`public`** |
+| Framework | **Other** |
 
-1. GitHub → **Settings → Applications → Vercel**
-2. **Configure** → asegúrate de que el repo **Jalia** tenga acceso
+Si Root Directory no está vacío, el deploy **fallará**.
 
-## Si hay deploys pero sigue la versión vieja
+## Importar el proyecto
 
-Revisa **Deployments** en Vercel. Si los últimos dicen **Error**:
+1. [vercel.com/new](https://vercel.com/new) → Import **`santiagoprado21/Jalia`**
+2. Branch: **`main`**
+3. Root Directory: **dejar vacío**
+4. Deploy
 
-- Abre el log del build
-- Suele ser `pnpm install` fallando por lockfile desactualizado  
-  (ya corregido con `--no-frozen-lockfile` en `vercel.json`)
+El `vercel.json` en la raíz ya configura install, build y output.
 
-Luego: **Deployments → ⋮ en el último commit → Redeploy**
+## Cómo funciona el build
 
-## Forzar deploy manual
+En Vercel, Vite escribe directamente en la carpeta `public/` en la raíz del repo (sin copiar archivos). Localmente sigue usando `artifacts/calculadora-postres/dist/public`.
 
-En Vercel → **Deployments → Create Deployment**:
+## Si sigue fallando
 
-- Branch: `main`
-- Confirma
+1. **Borra** el proyecto `jalia-api-server` (tiene mala config)
+2. Crea uno nuevo con los valores de arriba
+3. O en el proyecto existente: **Settings → General → Root Directory** → borrar el valor → Save → Redeploy
 
-O desde tu máquina (con Vercel CLI logueado):
+## Repo conectado
+
+Debe decir **`santiagoprado21/Jalia`**, no `jalia_postres`.
+
+## Deploy manual (opcional)
 
 ```bash
 cd /Users/santiago.prado/Downloads/Dessert-Pricing-Calc
 pnpm install
-git pull
 npx vercel --prod
 ```
-
-## Config correcta del proyecto
-
-**Importante:** al crear el proyecto en Vercel, NO elijas `artifacts/api-server`. Ese folder es un backend Express que no se usa en producción (la app guarda todo en localStorage).
-
-| Campo | Valor |
-|-------|--------|
-| Repo | `santiagoprado21/Jalia` |
-| Root Directory | `.` (raíz del repo, **dejar vacío**) |
-| Framework | Other |
-| Build Command | `pnpm --filter @workspace/calculadora-postres build` |
-| Output | `public` (se genera automáticamente en el build) |
-| Install | `pnpm install --no-frozen-lockfile` |
-
-Estos valores ya están en `vercel.json` en la raíz.
-
-Si ya creaste un proyecto con Root Directory = `artifacts/api-server`, bórralo y crea uno nuevo con la raíz del repo, o cambia **Settings → General → Root Directory** a `.` (vacío).
-
-También puedes usar **Root Directory = `artifacts/calculadora-postres`**. En ese caso Vercel usará el `vercel.json` de esa carpeta y el output será `dist/public`.
