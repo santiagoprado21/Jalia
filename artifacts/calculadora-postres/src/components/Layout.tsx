@@ -15,6 +15,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { isNativeApp } from "@/lib/native";
+import { useAuth } from "@/contexts/auth-context";
+import { useJaliaData } from "@/contexts/jalia-data-context";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -98,6 +100,16 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const isMobile = useIsMobile();
   const showMobileChrome = isMobile || isNativeApp;
+  const { configured, user, signOut } = useAuth();
+  const { cloudEnabled, syncing } = useJaliaData();
+
+  const syncLabel = cloudEnabled
+    ? syncing
+      ? "Sincronizando..."
+      : "Sincronizado"
+    : configured
+      ? "Solo en este dispositivo"
+      : "Modo local";
 
   if (showMobileChrome) {
     const moreActive = mobileMoreItems.some((item) => isActive(location, item.href));
@@ -110,9 +122,14 @@ export default function Layout({ children }: { children: ReactNode }) {
               <ChefHat className="w-5 h-5 text-primary shrink-0" />
               <div className="min-w-0">
                 <h1 className="font-serif text-base font-bold text-foreground leading-tight">JALIA</h1>
-                <p className="text-[11px] text-muted-foreground truncate">Calculadora de precios</p>
+                <p className="text-[11px] text-muted-foreground truncate">{syncLabel}</p>
               </div>
             </div>
+            {cloudEnabled && user && (
+              <Button variant="ghost" size="sm" className="text-xs shrink-0" onClick={() => void signOut()}>
+                Salir
+              </Button>
+            )}
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="shrink-0" aria-label="Abrir menú">
@@ -208,9 +225,14 @@ export default function Layout({ children }: { children: ReactNode }) {
               <h1 className="font-serif text-lg font-bold text-foreground leading-tight tracking-wide">
                 JALIA
               </h1>
-              <p className="text-xs text-muted-foreground">Calculadora de precios</p>
+              <p className="text-xs text-muted-foreground">{syncLabel}</p>
             </div>
           </div>
+          {cloudEnabled && user && (
+            <Button variant="ghost" size="sm" className="mt-3 w-full text-xs" onClick={() => void signOut()}>
+              Cerrar sesión
+            </Button>
+          )}
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1" data-testid="sidebar-nav">
@@ -225,7 +247,12 @@ export default function Layout({ children }: { children: ReactNode }) {
           ))}
         </div>
         <div className="px-6 py-3 border-t border-border">
-          <p className="text-xs text-muted-foreground">Datos guardados en este dispositivo.</p>
+          <p className="text-xs text-muted-foreground">{syncLabel}</p>
+          {cloudEnabled && user && (
+            <Button variant="ghost" size="sm" className="mt-2 h-7 px-0 text-xs" onClick={() => void signOut()}>
+              Cerrar sesión
+            </Button>
+          )}
         </div>
       </aside>
 

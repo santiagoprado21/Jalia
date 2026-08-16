@@ -14,67 +14,82 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useJaliaData } from "@/contexts/jalia-data-context";
+import { STORAGE_KEYS, type JaliaDatos } from "@/lib/jalia-store";
 
 const LLAVES = [
-  { key: "postres_recetas",      label: "Recetas",       emoji: "🍰" },
-  { key: "postres_ingredientes", label: "Ingredientes",  emoji: "🧈" },
-  { key: "postres_cotizaciones", label: "Cotizaciones",  emoji: "📋" },
-  { key: "postres_ventas",       label: "Ventas (caja)", emoji: "💰" },
-  { key: "postres_lista_compras", label: "Lista de compras", emoji: "🛒" },
-  { key: "postres_consignaciones", label: "Cartera", emoji: "👜" },
+  { key: STORAGE_KEYS.recetas, label: "Recetas", emoji: "🍰", field: "recetas" as const },
+  { key: STORAGE_KEYS.ingredientes, label: "Ingredientes", emoji: "🧈", field: "ingredientes" as const },
+  { key: STORAGE_KEYS.cotizaciones, label: "Cotizaciones", emoji: "📋", field: "cotizaciones" as const },
+  { key: STORAGE_KEYS.ventas, label: "Ventas (caja)", emoji: "💰", field: "ventas" as const },
+  { key: STORAGE_KEYS.listaCompras, label: "Lista de compras", emoji: "🛒", field: "listaCompras" as const },
+  { key: STORAGE_KEYS.consignaciones, label: "Cartera", emoji: "👜", field: "consignaciones" as const },
 ];
 
-function leerDatos() {
-  const datos: Record<string, unknown> = {};
-  LLAVES.forEach(({ key }) => {
-    try {
-      const raw = localStorage.getItem(key);
-      datos[key] = raw ? JSON.parse(raw) : [];
-    } catch {
-      datos[key] = [];
-    }
-  });
-  return datos;
+function contarRegistros(datos: JaliaDatos) {
+  return LLAVES.map(({ field, label, emoji }) => ({
+    field,
+    label,
+    emoji,
+    total: datos[field].length,
+  }));
 }
 
-function contarRegistros(datos: Record<string, unknown>) {
-  return LLAVES.map(({ key, label, emoji }) => {
-    const arr = Array.isArray(datos[key]) ? (datos[key] as unknown[]) : [];
-    return { key, label, emoji, total: arr.length };
-  });
+function jsonToDatos(json: Record<string, unknown>): JaliaDatos | null {
+  const datos = json.datos;
+  if (!datos || typeof datos !== "object") return null;
+
+  const source = datos as Record<string, unknown>;
+  const read = (legacyKey: string, modernField: keyof JaliaDatos) => {
+    const raw = source[legacyKey] ?? source[modernField];
+    return Array.isArray(raw) ? raw : [];
+  };
+
+  return {
+    ingredientes: read(STORAGE_KEYS.ingredientes, "ingredientes"),
+    recetas: read(STORAGE_KEYS.recetas, "recetas"),
+    cotizaciones: read(STORAGE_KEYS.cotizaciones, "cotizaciones"),
+    ventas: read(STORAGE_KEYS.ventas, "ventas"),
+    listaCompras: read(STORAGE_KEYS.listaCompras, "listaCompras"),
+    consignaciones: read(STORAGE_KEYS.consignaciones, "consignaciones"),
+  };
 }
 
 export default function Respaldo() {
+  const { datos, replaceAll, clearAll, cloudEnabled } = useJaliaData();
   const [importStatus, setImportStatus] = useState<"idle" | "ok" | "error">("idle");
-  const [importMsg, setImportMsg]       = useState("");
-  const [pendingData, setPendingData]   = useState<Record<string, unknown> | null>(null);
-  const [confirmOpen, setConfirmOpen]   = useState(false);
-  const [borrarOpen, setBorrarOpen]     = useState(false);
+  const [importMsg, setImportMsg] = useState("");
+  const [pendingData, setPendingData] = useState<JaliaDatos | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [borrarOpen, setBorrarOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const datosActuales = leerDatos();
-  const resumenActual = contarRegistros(datosActuales);
-  const totalActual   = resumenActual.reduce((s, r) => s + r.total, 0);
+  const resumenActual = contarRegistros(datos);
+  const totalActual = resumenActual.reduce((s, r) => s + r.total, 0);
 
-  // ── Export ──────────────────────────────────────────────────────────────
   function exportar() {
-    const datos = leerDatos();
     const payload = {
-      version: 1,
+      version: 2,
       exportadoEl: new Date().toISOString(),
       negocio: "JALIA",
-      datos,
+      datos: {
+        [STORAGE_KEYS.ingredientes]: datos.ingredientes,
+        [STORAGE_KEYS.recetas]: datos.recetas,
+        [STORAGE_KEYS.cotizaciones]: datos.cotizaciones,
+        [STORAGE_KEYS.ventas]: datos.ventas,
+        [STORAGE_KEYS.listaCompras]: datos.listaCompras,
+        [STORAGE_KEYS.consignaciones]: datos.consignaciones,
+      },
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
     a.download = `JALIA_respaldo_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  // ── Import ───────────────────────────────────────────────────────────────
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!fileRef.current) return;
@@ -85,19 +100,12 @@ export default function Respaldo() {
     reader.onload = (ev) => {
       try {
         const json = JSON.parse(ev.target?.result as string);
-        if (!json.datos || typeof json.datos !== "object") {
-          throw new Error("Formato inválido");
-        }
-        // Validate each key is an array
-        LLAVES.forEach(({ key }) => {
-          if (json.datos[key] !== undefined && !Array.isArray(json.datos[key])) {
-            throw new Error(`Datos de ${key} no son válidos`);
-          }
-        });
-        setPendingData(json.datos);
+        const parsed = jsonToDatos(json);
+        if (!parsed) throw new Error("Formato inválido");
+        setPendingData(parsed);
         setConfirmOpen(true);
         setImportStatus("idle");
-      } catch (err) {
+      } catch {
         setImportStatus("error");
         setImportMsg("El archivo no es válido o está dañado. Asegúrate de subir un archivo de respaldo de JALIA.");
       }
@@ -107,20 +115,19 @@ export default function Respaldo() {
 
   function confirmarImport() {
     if (!pendingData) return;
-    LLAVES.forEach(({ key }) => {
-      const val = pendingData[key];
-      if (Array.isArray(val)) {
-        localStorage.setItem(key, JSON.stringify(val));
-      }
-    });
+    replaceAll(pendingData);
     setPendingData(null);
     setConfirmOpen(false);
     setImportStatus("ok");
-    setImportMsg("¡Datos restaurados correctamente! Recarga la página para verlos.");
+    setImportMsg(
+      cloudEnabled
+        ? "¡Datos restaurados y sincronizados en la nube!"
+        : "¡Datos restaurados correctamente! Recarga la página para verlos.",
+    );
   }
 
   function borrarTodo() {
-    LLAVES.forEach(({ key }) => localStorage.removeItem(key));
+    clearAll();
     setBorrarOpen(false);
     setImportStatus("ok");
     setImportMsg("Todos los datos han sido eliminados.");
@@ -134,11 +141,12 @@ export default function Respaldo() {
       <div className="mb-8">
         <h2 className="font-serif text-3xl font-bold text-foreground">Respaldo de datos</h2>
         <p className="text-muted-foreground mt-1">
-          Exporta todos tus datos para guardarlos o transferirlos a otro dispositivo
+          {cloudEnabled
+            ? "Tus datos se sincronizan en la nube. También puedes exportar un archivo JSON de respaldo."
+            : "Exporta todos tus datos para guardarlos o transferirlos a otro dispositivo"}
         </p>
       </div>
 
-      {/* Status banner */}
       <AnimatePresence>
         {importStatus !== "idle" && (
           <motion.div
@@ -151,18 +159,17 @@ export default function Respaldo() {
                 : "bg-red-50 border-red-200 text-red-800"
             }`}
           >
-            {importStatus === "ok"
-              ? <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0" />
-              : <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
-            }
+            {importStatus === "ok" ? (
+              <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
+            )}
             <p className="text-sm font-medium">{importMsg}</p>
           </motion.div>
         )}
       </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        {/* Current data summary */}
         <Card>
           <CardHeader>
             <CardTitle className="font-serif text-lg flex items-center gap-2">
@@ -171,8 +178,8 @@ export default function Respaldo() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {resumenActual.map(({ key, label, emoji, total }) => (
-              <div key={key} className="flex items-center justify-between py-1">
+            {resumenActual.map(({ field, label, emoji, total }) => (
+              <div key={field} className="flex items-center justify-between py-1">
                 <div className="flex items-center gap-2">
                   <span className="text-base">{emoji}</span>
                   <span className="text-sm text-foreground">{label}</span>
@@ -190,10 +197,7 @@ export default function Respaldo() {
           </CardContent>
         </Card>
 
-        {/* Actions */}
         <div className="space-y-4">
-
-          {/* Export */}
           <Card className="border-primary/20">
             <CardHeader className="pb-2">
               <CardTitle className="font-serif text-base flex items-center gap-2">
@@ -204,8 +208,7 @@ export default function Respaldo() {
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 Descarga un archivo <code className="bg-muted px-1 rounded text-xs">.json</code> con todas tus
-                recetas, ingredientes, cotizaciones y ventas. Guárdalo en Google Drive, WhatsApp o donde prefieras.
-                Incluye también lista de compras y cartera.
+                recetas, ingredientes, cotizaciones y ventas.
               </p>
               <Button onClick={exportar} className="w-full gap-2" data-testid="button-exportar-respaldo">
                 <Download className="w-4 h-4" />
@@ -214,7 +217,6 @@ export default function Respaldo() {
             </CardContent>
           </Card>
 
-          {/* Import */}
           <Card className="border-orange-200">
             <CardHeader className="pb-2">
               <CardTitle className="font-serif text-base flex items-center gap-2">
@@ -224,7 +226,7 @@ export default function Respaldo() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Sube un archivo de respaldo de JALIA para restaurar tus datos en este dispositivo.
+                Sube un archivo de respaldo de JALIA para restaurar tus datos.
                 <span className="font-semibold text-orange-700"> Los datos actuales serán reemplazados.</span>
               </p>
               <input
@@ -247,7 +249,6 @@ export default function Respaldo() {
             </CardContent>
           </Card>
 
-          {/* Danger zone */}
           <Card className="border-destructive/20">
             <CardHeader className="pb-2">
               <CardTitle className="font-serif text-base flex items-center gap-2 text-destructive">
@@ -258,7 +259,6 @@ export default function Respaldo() {
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 Elimina permanentemente todas las recetas, ingredientes, cotizaciones y ventas guardadas.
-                <span className="font-semibold text-destructive"> Esta acción no se puede deshacer.</span>
               </p>
               <Button
                 variant="outline"
@@ -274,7 +274,6 @@ export default function Respaldo() {
         </div>
       </div>
 
-      {/* Confirm import dialog */}
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -283,9 +282,11 @@ export default function Respaldo() {
               <div className="space-y-3">
                 <p>Esto reemplazará tus datos actuales con el contenido del archivo. El archivo contiene:</p>
                 <div className="bg-muted rounded-lg p-3 space-y-1">
-                  {pendingResumen.map(({ key, emoji, label, total }) => (
-                    <div key={key} className="flex justify-between text-sm">
-                      <span>{emoji} {label}</span>
+                  {pendingResumen.map(({ field, emoji, label, total }) => (
+                    <div key={field} className="flex justify-between text-sm">
+                      <span>
+                        {emoji} {label}
+                      </span>
                       <span className="font-semibold">{total} registros</span>
                     </div>
                   ))}
@@ -298,17 +299,13 @@ export default function Respaldo() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancelar-import">Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmarImport}
-              data-testid="button-confirmar-import"
-            >
+            <AlertDialogAction onClick={confirmarImport} data-testid="button-confirmar-import">
               Sí, restaurar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Confirm delete all */}
       <AlertDialog open={borrarOpen} onOpenChange={setBorrarOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

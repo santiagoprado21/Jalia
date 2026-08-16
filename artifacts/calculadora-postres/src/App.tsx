@@ -1,7 +1,10 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider, useAuth } from "@/contexts/auth-context";
+import { JaliaDataProvider, useJaliaData } from "@/contexts/jalia-data-context";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
 import Ingredientes from "@/pages/Ingredientes";
@@ -15,9 +18,18 @@ import RegistrarVenta from "@/pages/RegistrarVenta";
 import ListaCompras from "@/pages/ListaCompras";
 import Cartera from "@/pages/Cartera";
 import Respaldo from "@/pages/Respaldo";
+import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+    </div>
+  );
+}
 
 function Router() {
   return (
@@ -41,13 +53,28 @@ function Router() {
   );
 }
 
+function AppGate() {
+  const { configured, user, loading: authLoading } = useAuth();
+  const { ready } = useJaliaData();
+
+  if (configured && authLoading) return <LoadingScreen />;
+  if (configured && !user) return <Login />;
+  if (!ready) return <LoadingScreen />;
+
+  return <Router />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <AuthProvider>
+          <JaliaDataProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <AppGate />
+            </WouterRouter>
+          </JaliaDataProvider>
+        </AuthProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
