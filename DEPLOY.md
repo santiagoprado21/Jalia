@@ -1,25 +1,17 @@
 # Deploy en Vercel
 
-## Opción A — Root Directory vacío (recomendado)
+## Root Directory actual en Vercel
+
+Tu proyecto `jalia-api-server` tiene **Root Directory = `artifacts/api-server`**.
+
+Ya hay un `vercel.json` en esa carpeta que construye la calculadora y copia el output a `public/`.
+
+Si prefieres simplificar, cambia en **Settings → General**:
 
 | Campo | Valor |
 |-------|--------|
-| Repo | `santiagoprado21/Jalia` |
 | Root Directory | **vacío** |
 | Output Directory | **`public`** |
-| Framework | **Other** |
-
-Usa el `vercel.json` de la raíz del repo.
-
-## Opción B — Root Directory = `artifacts/calculadora-postres`
-
-| Campo | Valor |
-|-------|--------|
-| Root Directory | **`artifacts/calculadora-postres`** |
-| Output Directory | **`public`** |
-| Framework | **Other** |
-
-Usa el `vercel.json` dentro de esa carpeta.
 
 ## NO uses
 
