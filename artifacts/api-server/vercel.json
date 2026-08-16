@@ -1,6 +1,6 @@
 {
   "installCommand": "cd ../.. && pnpm install --no-frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm --filter @workspace/calculadora-postres build && rm -rf public && cp -r artifacts/calculadora-postres/dist/public public",
+  "buildCommand": "cd ../.. && pnpm --filter @workspace/calculadora-postres build && rm -rf artifacts/api-server/public && cp -r artifacts/calculadora-postres/dist/public artifacts/api-server/public",
   "outputDirectory": "public",
   "framework": null,
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
