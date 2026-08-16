@@ -57,3 +57,5 @@ npx vercel --prod
 Estos valores ya están en `vercel.json` en la raíz.
 
 Si ya creaste un proyecto con Root Directory = `artifacts/api-server`, bórralo y crea uno nuevo con la raíz del repo, o cambia **Settings → General → Root Directory** a `.` (vacío).
+
+También puedes usar **Root Directory = `artifacts/calculadora-postres`**. En ese caso Vercel usará el `vercel.json` de esa carpeta y el output será `dist/public`.
