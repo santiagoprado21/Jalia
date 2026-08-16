@@ -51,7 +51,7 @@ npx vercel --prod
 | Root Directory | `.` (raíz del repo, **dejar vacío**) |
 | Framework | Other |
 | Build Command | `pnpm --filter @workspace/calculadora-postres build` |
-| Output | `artifacts/calculadora-postres/dist/public` |
+| Output | `public` (se genera automáticamente en el build) |
 | Install | `pnpm install --no-frozen-lockfile` |
 
 Estos valores ya están en `vercel.json` en la raíz.
