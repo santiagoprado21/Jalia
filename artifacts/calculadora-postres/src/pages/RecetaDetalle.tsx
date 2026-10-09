@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,7 +12,6 @@ import { CATEGORIAS } from "@/types";
 import type { VarianteReceta } from "@/types";
 import VariantesEditor from "@/components/VariantesEditor";
 import PrecioDesglose from "@/components/PrecioDesglose";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,6 +93,16 @@ export default function RecetaDetalle() {
     control: form.control,
     name: "ingredientesReceta",
   });
+
+  const listaRef = useRef<HTMLDivElement>(null);
+
+  function agregarFila() {
+    append({ ingredienteId: "", cantidad: 0 });
+    requestAnimationFrame(() => {
+      const lista = listaRef.current;
+      if (lista) lista.scrollTo({ top: lista.scrollHeight, behavior: "smooth" });
+    });
+  }
 
   if (!receta) {
     return (
@@ -279,7 +288,7 @@ export default function RecetaDetalle() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => append({ ingredienteId: "", cantidad: 0 })}
+                      onClick={agregarFila}
                       data-testid="button-agregar-ingrediente-receta"
                       className="gap-1"
                     >
@@ -294,7 +303,7 @@ export default function RecetaDetalle() {
                       Esta receta no tiene ingredientes registrados.
                     </p>
                   )}
-                  <ScrollArea className="max-h-72 pr-3">
+                  <div ref={listaRef} className="lista-scroll max-h-[50vh] pr-2">
                   <div className="space-y-3">
                     {fields.map((field, index) => (
                       <div key={field.id} className="flex items-end gap-2">
@@ -364,7 +373,7 @@ export default function RecetaDetalle() {
                       </div>
                     ))}
                   </div>
-                  </ScrollArea>
+                  </div>
                 </CardContent>
               </Card>
 

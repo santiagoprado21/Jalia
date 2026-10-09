@@ -217,7 +217,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex bg-background">
-      <aside className="w-64 shrink-0 border-r border-border bg-card flex flex-col">
+      <aside className="sticky top-0 h-screen w-64 shrink-0 overflow-y-auto border-r border-border bg-card flex flex-col">
         <div className="px-6 py-6 border-b border-border">
           <div className="flex items-center gap-2">
             <ChefHat className="w-6 h-6 text-primary" />

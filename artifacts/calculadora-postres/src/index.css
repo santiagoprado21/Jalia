@@ -336,6 +336,25 @@ body {
   overscroll-behavior-y: none;
 }
 
+.lista-scroll {
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.lista-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.lista-scroll::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--primary) / 0.45);
+  border-radius: 9999px;
+}
+
+.lista-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 @supports (padding: env(safe-area-inset-bottom)) {
   .native-shell main {
     padding-bottom: calc(5rem + env(safe-area-inset-bottom));

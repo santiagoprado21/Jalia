@@ -132,6 +132,7 @@ export default function Ingredientes() {
       )}
 
       {ingredientes.length > 0 && (
+        <div className="lista-scroll max-h-[65vh] pr-2">
         <div className="space-y-2">
           <AnimatePresence>
             {ingredientes.map((ing, i) => (
@@ -187,6 +188,7 @@ export default function Ingredientes() {
               </motion.div>
             ))}
           </AnimatePresence>
+        </div>
         </div>
       )}
 
