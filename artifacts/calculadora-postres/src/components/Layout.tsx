@@ -101,15 +101,18 @@ export default function Layout({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
   const showMobileChrome = isMobile || isNativeApp;
   const { configured, user, signOut } = useAuth();
-  const { cloudEnabled, syncing } = useJaliaData();
+  const { cloudEnabled, syncing, syncError } = useJaliaData();
 
   const syncLabel = cloudEnabled
     ? syncing
       ? "Sincronizando..."
-      : "Sincronizado"
+      : syncError
+        ? "Sin conexión · guardado solo en este dispositivo"
+        : "Sincronizado"
     : configured
       ? "Solo en este dispositivo"
       : "Modo local";
+  const syncAlert = cloudEnabled && !syncing && syncError;
 
   if (showMobileChrome) {
     const moreActive = mobileMoreItems.some((item) => isActive(location, item.href));
@@ -122,7 +125,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               <ChefHat className="w-5 h-5 text-primary shrink-0" />
               <div className="min-w-0">
                 <h1 className="font-serif text-base font-bold text-foreground leading-tight">JALIA</h1>
-                <p className="text-[11px] text-muted-foreground truncate">{syncLabel}</p>
+                <p className={cn("text-[11px] truncate", syncAlert ? "text-destructive font-medium" : "text-muted-foreground")}>{syncLabel}</p>
               </div>
             </div>
             {cloudEnabled && user && (
@@ -225,7 +228,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               <h1 className="font-serif text-lg font-bold text-foreground leading-tight tracking-wide">
                 JALIA
               </h1>
-              <p className="text-xs text-muted-foreground">{syncLabel}</p>
+              <p className={cn("text-xs", syncAlert ? "text-destructive font-medium" : "text-muted-foreground")}>{syncLabel}</p>
             </div>
           </div>
           {cloudEnabled && user && (
@@ -247,7 +250,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           ))}
         </div>
         <div className="px-6 py-3 border-t border-border">
-          <p className="text-xs text-muted-foreground">{syncLabel}</p>
+          <p className={cn("text-xs", syncAlert ? "text-destructive font-medium" : "text-muted-foreground")}>{syncLabel}</p>
           {cloudEnabled && user && (
             <Button variant="ghost" size="sm" className="mt-2 h-7 px-0 text-xs" onClick={() => void signOut()}>
               Cerrar sesión

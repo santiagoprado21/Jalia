@@ -15,8 +15,12 @@ import {
   datosToRow,
   EMPTY_DATOS,
   isCloudEmpty,
+  limpiarSyncPendiente,
+  marcarSyncPendiente,
+  mergeDatos,
   readLocalDatos,
   rowToDatos,
+  tieneSyncPendiente,
   writeLocalDatos,
   type JaliaDatos,
 } from "@/lib/jalia-store";
@@ -24,6 +28,7 @@ import {
 interface JaliaDataContextValue {
   ready: boolean;
   syncing: boolean;
+  syncError: boolean;
   cloudEnabled: boolean;
   datos: JaliaDatos;
   setDatos: (updater: JaliaDatos | ((prev: JaliaDatos) => JaliaDatos)) => void;
@@ -38,6 +43,7 @@ export function JaliaDataProvider({ children }: { children: ReactNode }) {
   const [datos, setDatosState] = useState<JaliaDatos>(() => readLocalDatos());
   const [ready, setReady] = useState(!configured);
   const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState(false);
   const datosRef = useRef(datos);
   const saveTimerRef = useRef<number | null>(null);
   const applyingRemoteRef = useRef(false);
@@ -53,10 +59,20 @@ export function JaliaDataProvider({ children }: { children: ReactNode }) {
     async (next: JaliaDatos) => {
       if (!configured || !user) return;
       setSyncing(true);
+      marcarSyncPendiente(user.id);
       try {
         const supabase = getSupabase();
         const { error } = await supabase.from("jalia_datos").upsert(datosToRow(user.id, next));
-        if (error) console.error("Error guardando en Supabase:", error.message);
+        if (error) {
+          console.error("Error guardando en Supabase:", error.message);
+          setSyncError(true);
+        } else {
+          if (datosRef.current === next) limpiarSyncPendiente(user.id);
+          setSyncError(false);
+        }
+      } catch (err) {
+        console.error("Error guardando en Supabase:", err);
+        setSyncError(true);
       } finally {
         setSyncing(false);
       }
@@ -67,6 +83,7 @@ export function JaliaDataProvider({ children }: { children: ReactNode }) {
   const scheduleCloudSave = useCallback(
     (next: JaliaDatos) => {
       if (!configured || !user || applyingRemoteRef.current) return;
+      marcarSyncPendiente(user.id);
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
       saveTimerRef.current = window.setTimeout(() => {
         void pushToCloud(next);
@@ -129,6 +146,7 @@ export function JaliaDataProvider({ children }: { children: ReactNode }) {
 
         if (error) {
           console.error("Error cargando Supabase:", error.message);
+          setSyncError(true);
           setDatosState(readLocalDatos());
           setReady(true);
           return;
@@ -141,19 +159,47 @@ export function JaliaDataProvider({ children }: { children: ReactNode }) {
           const initial = localHasData ? local : EMPTY_DATOS;
           setDatosState(initial);
           persistLocal(initial);
-          await supabase.from("jalia_datos").upsert(datosToRow(userId, initial));
+          const { error: saveError } = await supabase
+            .from("jalia_datos")
+            .upsert(datosToRow(userId, initial));
+          if (!saveError) limpiarSyncPendiente(userId);
           setReady(true);
           return;
         }
 
         const cloud = rowToDatos(data);
-        if (isCloudEmpty(cloud) && localHasData) {
+        if (localHasData && tieneSyncPendiente(userId)) {
+          const merged = mergeDatos(cloud, local);
+          setDatosState(merged);
+          persistLocal(merged);
+          const { error: saveError } = await supabase
+            .from("jalia_datos")
+            .upsert(datosToRow(userId, merged));
+          if (saveError) {
+            console.error("Error guardando en Supabase:", saveError.message);
+            setSyncError(true);
+          } else {
+            limpiarSyncPendiente(userId);
+            setSyncError(false);
+          }
+        } else if (isCloudEmpty(cloud) && localHasData) {
           setDatosState(local);
           persistLocal(local);
-          await supabase.from("jalia_datos").upsert(datosToRow(userId, local));
+          const { error: saveError } = await supabase
+            .from("jalia_datos")
+            .upsert(datosToRow(userId, local));
+          if (!saveError) limpiarSyncPendiente(userId);
         } else {
           setDatosState(cloud);
           persistLocal(cloud);
+          limpiarSyncPendiente(userId);
+          setSyncError(false);
+        }
+      } catch (err) {
+        console.error("Error cargando Supabase:", err);
+        if (!cancelled) {
+          setSyncError(true);
+          setDatosState(readLocalDatos());
         }
       } finally {
         if (!cancelled) setReady(true);
@@ -183,7 +229,10 @@ export function JaliaDataProvider({ children }: { children: ReactNode }) {
         },
         (payload) => {
           applyingRemoteRef.current = true;
-          const next = rowToDatos(payload.new as Record<string, unknown>);
+          const remote = rowToDatos(payload.new as Record<string, unknown>);
+          const next = tieneSyncPendiente(user.id)
+            ? mergeDatos(remote, datosRef.current)
+            : remote;
           setDatosState(next);
           persistLocal(next);
           window.setTimeout(() => {
@@ -212,13 +261,14 @@ export function JaliaDataProvider({ children }: { children: ReactNode }) {
     () => ({
       ready,
       syncing,
+      syncError,
       cloudEnabled: configured && Boolean(user),
       datos,
       setDatos,
       replaceAll,
       clearAll,
     }),
-    [ready, syncing, configured, user, datos, setDatos, replaceAll, clearAll],
+    [ready, syncing, syncError, configured, user, datos, setDatos, replaceAll, clearAll],
   );
 
   return <JaliaDataContext.Provider value={value}>{children}</JaliaDataContext.Provider>;

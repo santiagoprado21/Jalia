@@ -76,6 +76,49 @@ export function countLocalRecords() {
   );
 }
 
+const PENDIENTE_KEY = "jalia_sync_pendiente";
+const MERGE_INICIAL_KEY = "jalia_sync_merge_inicial";
+const DUENO_LOCAL_KEY = "jalia_local_dueno";
+
+export function marcarSyncPendiente(userId: string) {
+  localStorage.setItem(PENDIENTE_KEY, userId);
+  localStorage.setItem(DUENO_LOCAL_KEY, userId);
+}
+
+/** Devuelve true si hay que mezclar la copia local con la nube en vez de sobrescribirla. */
+export function tieneSyncPendiente(userId: string) {
+  const dueno = localStorage.getItem(DUENO_LOCAL_KEY);
+  if (dueno && dueno !== userId) return false;
+  return (
+    localStorage.getItem(PENDIENTE_KEY) === userId ||
+    localStorage.getItem(MERGE_INICIAL_KEY) !== userId
+  );
+}
+
+export function limpiarSyncPendiente(userId: string) {
+  localStorage.removeItem(PENDIENTE_KEY);
+  localStorage.setItem(MERGE_INICIAL_KEY, userId);
+  localStorage.setItem(DUENO_LOCAL_KEY, userId);
+}
+
+function mergePorId<T extends { id: string }>(base: T[], encima: T[]): T[] {
+  const porId = new Map(base.map((item) => [item.id, item]));
+  encima.forEach((item) => porId.set(item.id, item));
+  return Array.from(porId.values());
+}
+
+/** Combina dos copias; si un registro existe en ambas, gana el de `encima`. */
+export function mergeDatos(base: JaliaDatos, encima: JaliaDatos): JaliaDatos {
+  return {
+    ingredientes: mergePorId(base.ingredientes, encima.ingredientes),
+    recetas: mergePorId(base.recetas, encima.recetas),
+    cotizaciones: mergePorId(base.cotizaciones, encima.cotizaciones),
+    ventas: mergePorId(base.ventas, encima.ventas),
+    listaCompras: mergePorId(base.listaCompras, encima.listaCompras),
+    consignaciones: mergePorId(base.consignaciones, encima.consignaciones),
+  };
+}
+
 export function isCloudEmpty(datos: JaliaDatos) {
   return Object.values(datos).every((arr) => arr.length === 0);
 }
