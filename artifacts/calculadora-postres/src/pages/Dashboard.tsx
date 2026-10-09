@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { PlusCircle, TrendingUp, DollarSign, Package, FileDown, FileSpreadsheet } from "lucide-react";
+import { PlusCircle, TrendingUp, DollarSign, Package, FileDown, FileSpreadsheet, Search, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { exportarPDF, exportarExcel } from "@/lib/exportar";
 import { formatMoneda } from "@/lib/moneda";
@@ -20,15 +21,25 @@ const categoryColors: Record<string, string> = {
   Otro: "bg-gray-100 text-gray-700",
 };
 
+function normalizar(texto: string) {
+  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
 export default function Dashboard() {
   const { recetas } = useRecetas();
   const { ingredientes } = useIngredientes();
   const [exportando, setExportando] = useState<"pdf" | "excel" | null>(null);
+  const [busqueda, setBusqueda] = useState("");
 
   const recetasConCalculo = recetas.map((r) => ({
     receta: r,
     calc: calcularPrecio(r, ingredientes),
   }));
+
+  const termino = normalizar(busqueda);
+  const recetasFiltradas = termino
+    ? recetasConCalculo.filter(({ receta }) => normalizar(receta.nombre).includes(termino))
+    : recetasConCalculo;
 
   function handleExportPDF() {
     setExportando("pdf");
@@ -173,10 +184,43 @@ export default function Dashboard() {
         </motion.div>
       )}
 
-      {/* Recipe cards */}
+      {/* Search */}
       {recetas.length > 0 && (
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar receta por nombre..."
+            aria-label="Buscar receta por nombre"
+            data-testid="input-buscar-receta"
+            className="pl-9 pr-9 h-10"
+          />
+          {busqueda && (
+            <button
+              type="button"
+              onClick={() => setBusqueda("")}
+              aria-label="Limpiar búsqueda"
+              data-testid="button-limpiar-busqueda"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {recetas.length > 0 && recetasFiltradas.length === 0 && (
+        <p className="text-center text-muted-foreground py-12" data-testid="text-sin-resultados">
+          No hay recetas que coincidan con "{busqueda.trim()}".
+        </p>
+      )}
+
+      {/* Recipe cards */}
+      {recetasFiltradas.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {recetasConCalculo.map(({ receta, calc }, index) => (
+          {recetasFiltradas.map(({ receta, calc }, index) => (
             <motion.div
               key={receta.id}
               initial={{ opacity: 0, y: 16 }}
