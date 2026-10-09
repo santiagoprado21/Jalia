@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Trash2, ArrowLeft, Calculator } from "lucide-react";
 import { Link } from "wouter";
-import { useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
+import { useRecetas, useIngredientes, useEmpaques, calcularPrecio, costoEmpaquePorPorcion } from "@/hooks/use-data";
 import { formatMoneda } from "@/lib/moneda";
 import { useToast } from "@/hooks/use-toast";
 import { CATEGORIAS } from "@/types";
@@ -13,6 +13,7 @@ import type { VarianteReceta } from "@/types";
 import VariantesEditor from "@/components/VariantesEditor";
 import PrecioDesglose from "@/components/PrecioDesglose";
 import PrecioVentaCard from "@/components/PrecioVentaCard";
+import EmpaquesRecetaCard from "@/components/EmpaquesRecetaCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +37,13 @@ const schema = z.object({
   porciones: z.coerce.number().min(1, "Debe producir al menos 1 porcion"),
   costosFijos: z.coerce.number().min(0),
   costosVariables: z.coerce.number().min(0),
-  costoEmpaque: z.coerce.number().min(0),
+  empaques: z.array(
+    z.object({
+      empaqueId: z.string().min(1, "Selecciona un empaque"),
+      cantidad: z.coerce.number().positive("Cantidad invalida"),
+    })
+  ),
+  costoEmpaqueOtro: z.coerce.number().min(0),
   margenGanancia: z.coerce.number().min(0).max(1000),
   margenMayorista: z.coerce.number().min(0).max(1000),
   precioVentaDetal: precioOpcional,
@@ -55,6 +62,7 @@ export default function NuevaReceta() {
   const [, setLocation] = useLocation();
   const { agregarReceta } = useRecetas();
   const { ingredientes } = useIngredientes();
+  const { empaques: catalogoEmpaques } = useEmpaques();
   const { toast } = useToast();
   const [variantes, setVariantes] = useState<VarianteReceta[]>([]);
 
@@ -66,7 +74,8 @@ export default function NuevaReceta() {
       porciones: 1,
       costosFijos: 0,
       costosVariables: 0,
-      costoEmpaque: 0,
+      empaques: [],
+      costoEmpaqueOtro: 0,
       margenGanancia: 30,
       margenMayorista: 0,
       ingredientesReceta: [],
@@ -89,6 +98,7 @@ export default function NuevaReceta() {
   }
 
   const values = form.watch();
+  const costoEmpaque = costoEmpaquePorPorcion(values.empaques, Number(values.costoEmpaqueOtro) || 0, catalogoEmpaques);
 
   const calcLive = () => {
     const partial = {
@@ -99,7 +109,7 @@ export default function NuevaReceta() {
       ingredientesReceta: values.ingredientesReceta,
       costosFijos: values.costosFijos || 0,
       costosVariables: values.costosVariables || 0,
-      costoEmpaque: values.costoEmpaque || 0,
+      costoEmpaque,
       margenGanancia: values.margenGanancia || 0,
       margenMayorista: values.margenMayorista || 0,
       fechaCreacion: "",
@@ -112,12 +122,16 @@ export default function NuevaReceta() {
   const recetaBase = {
     id: "", nombre: values.nombre, categoria: values.categoria,
     porciones: values.porciones || 1, ingredientesReceta: values.ingredientesReceta,
-    costosFijos: values.costosFijos || 0, costosVariables: values.costosVariables || 0, costoEmpaque: values.costoEmpaque || 0, margenGanancia: values.margenGanancia || 0,
+    costosFijos: values.costosFijos || 0, costosVariables: values.costosVariables || 0, costoEmpaque, margenGanancia: values.margenGanancia || 0,
     fechaCreacion: "", variantes,
   };
 
   function onSubmit(values: FormValues) {
-    agregarReceta({ ...values, variantes });
+    agregarReceta({
+      ...values,
+      costoEmpaque: costoEmpaquePorPorcion(values.empaques, values.costoEmpaqueOtro, catalogoEmpaques),
+      variantes,
+    });
     toast({
       title: "✅ Receta guardada",
       description: `"${values.nombre}" ya aparece en Mis Recetas.`,
@@ -340,6 +354,13 @@ export default function NuevaReceta() {
                 recetaBase={recetaBase}
               />
 
+              <EmpaquesRecetaCard
+                control={form.control}
+                porciones={values.porciones || 1}
+                costoTotal={calc.costoEmpaque}
+                mostrarOtro={false}
+              />
+
               {/* Costs & margin */}
               <Card>
                 <CardHeader>
@@ -394,35 +415,6 @@ export default function NuevaReceta() {
                       )}
                     />
                   </div>
-                  <FormField
-                    control={form.control}
-                    name="costoEmpaque"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Costo de cada empaque ($)</FormLabel>
-                        <p className="text-xs text-muted-foreground -mt-1">
-                          Caja, bolsa o vasito para una porción
-                          {(values.costoEmpaque || 0) > 0 && (
-                            <>
-                              {" · "}× {values.porciones || 1} porciones ={" "}
-                              <span className="font-medium text-foreground">{formatMoneda(calc.costoEmpaque)}</span>
-                            </>
-                          )}
-                        </p>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            placeholder="0"
-                            data-testid="input-costo-empaque"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}

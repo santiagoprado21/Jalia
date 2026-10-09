@@ -1,6 +1,8 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   Consignacion,
   Cotizacion,
+  Empaque,
   Ingrediente,
   ItemListaCompra,
   Receta,
@@ -9,6 +11,7 @@ import type {
 
 export const STORAGE_KEYS = {
   ingredientes: "postres_ingredientes",
+  empaques: "postres_empaques",
   recetas: "postres_recetas",
   cotizaciones: "postres_cotizaciones",
   ventas: "postres_ventas",
@@ -18,6 +21,7 @@ export const STORAGE_KEYS = {
 
 export interface JaliaDatos {
   ingredientes: Ingrediente[];
+  empaques: Empaque[];
   recetas: Receta[];
   cotizaciones: Cotizacion[];
   ventas: VentaDiaria[];
@@ -27,6 +31,7 @@ export interface JaliaDatos {
 
 export const EMPTY_DATOS: JaliaDatos = {
   ingredientes: [],
+  empaques: [],
   recetas: [],
   cotizaciones: [],
   ventas: [],
@@ -47,6 +52,7 @@ export function readLocalDatos(): JaliaDatos {
 
   return {
     ingredientes: read<Ingrediente>(STORAGE_KEYS.ingredientes),
+    empaques: read<Empaque>(STORAGE_KEYS.empaques),
     recetas: read<Receta>(STORAGE_KEYS.recetas),
     cotizaciones: read<Cotizacion>(STORAGE_KEYS.cotizaciones),
     ventas: read<VentaDiaria>(STORAGE_KEYS.ventas),
@@ -57,6 +63,7 @@ export function readLocalDatos(): JaliaDatos {
 
 export function writeLocalDatos(datos: JaliaDatos) {
   localStorage.setItem(STORAGE_KEYS.ingredientes, JSON.stringify(datos.ingredientes));
+  localStorage.setItem(STORAGE_KEYS.empaques, JSON.stringify(datos.empaques));
   localStorage.setItem(STORAGE_KEYS.recetas, JSON.stringify(datos.recetas));
   localStorage.setItem(STORAGE_KEYS.cotizaciones, JSON.stringify(datos.cotizaciones));
   localStorage.setItem(STORAGE_KEYS.ventas, JSON.stringify(datos.ventas));
@@ -66,14 +73,7 @@ export function writeLocalDatos(datos: JaliaDatos) {
 
 export function countLocalRecords() {
   const datos = readLocalDatos();
-  return (
-    datos.ingredientes.length +
-    datos.recetas.length +
-    datos.cotizaciones.length +
-    datos.ventas.length +
-    datos.listaCompras.length +
-    datos.consignaciones.length
-  );
+  return Object.values(datos).reduce((sum, arr) => sum + arr.length, 0);
 }
 
 const PENDIENTE_KEY = "jalia_sync_pendiente";
@@ -111,6 +111,7 @@ function mergePorId<T extends { id: string }>(base: T[], encima: T[]): T[] {
 export function mergeDatos(base: JaliaDatos, encima: JaliaDatos): JaliaDatos {
   return {
     ingredientes: mergePorId(base.ingredientes, encima.ingredientes),
+    empaques: mergePorId(base.empaques, encima.empaques),
     recetas: mergePorId(base.recetas, encima.recetas),
     cotizaciones: mergePorId(base.cotizaciones, encima.cotizaciones),
     ventas: mergePorId(base.ventas, encima.ventas),
@@ -123,11 +124,16 @@ export function isCloudEmpty(datos: JaliaDatos) {
   return Object.values(datos).every((arr) => arr.length === 0);
 }
 
-export function rowToDatos(row: Record<string, unknown>): JaliaDatos {
+/**
+ * `empaquesLocales` se usa cuando la tabla todavía no tiene la columna `empaques`,
+ * para no borrar los empaques guardados en el dispositivo.
+ */
+export function rowToDatos(row: Record<string, unknown>, empaquesLocales: Empaque[] = []): JaliaDatos {
   const asArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : []);
 
   return {
     ingredientes: asArray<Ingrediente>(row.ingredientes),
+    empaques: "empaques" in row ? asArray<Empaque>(row.empaques) : empaquesLocales,
     recetas: asArray<Receta>(row.recetas),
     cotizaciones: asArray<Cotizacion>(row.cotizaciones),
     ventas: asArray<VentaDiaria>(row.ventas),
@@ -136,10 +142,11 @@ export function rowToDatos(row: Record<string, unknown>): JaliaDatos {
   };
 }
 
-export function datosToRow(userId: string, datos: JaliaDatos) {
+export function datosToRow(userId: string, datos: JaliaDatos): Record<string, unknown> {
   return {
     user_id: userId,
     ingredientes: datos.ingredientes,
+    empaques: datos.empaques,
     recetas: datos.recetas,
     cotizaciones: datos.cotizaciones,
     ventas: datos.ventas,
@@ -147,4 +154,20 @@ export function datosToRow(userId: string, datos: JaliaDatos) {
     consignaciones: datos.consignaciones,
     updated_at: new Date().toISOString(),
   };
+}
+
+let tablaTieneEmpaques = true;
+
+/** Guarda en Supabase; si la columna `empaques` aún no existe, guarda el resto. */
+export async function guardarEnNube(supabase: SupabaseClient, userId: string, datos: JaliaDatos) {
+  const row = datosToRow(userId, datos);
+  if (!tablaTieneEmpaques) delete row.empaques;
+  let { error } = await supabase.from("jalia_datos").upsert(row);
+  if (error && tablaTieneEmpaques && error.message.includes("empaques")) {
+    console.warn("La tabla jalia_datos no tiene la columna empaques; ejecuta supabase/schema.sql.");
+    tablaTieneEmpaques = false;
+    delete row.empaques;
+    ({ error } = await supabase.from("jalia_datos").upsert(row));
+  }
+  return { error };
 }

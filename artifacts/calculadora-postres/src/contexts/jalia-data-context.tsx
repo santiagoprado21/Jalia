@@ -12,8 +12,8 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useAuth } from "@/contexts/auth-context";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import {
-  datosToRow,
   EMPTY_DATOS,
+  guardarEnNube,
   isCloudEmpty,
   limpiarSyncPendiente,
   marcarSyncPendiente,
@@ -62,7 +62,7 @@ export function JaliaDataProvider({ children }: { children: ReactNode }) {
       marcarSyncPendiente(user.id);
       try {
         const supabase = getSupabase();
-        const { error } = await supabase.from("jalia_datos").upsert(datosToRow(user.id, next));
+        const { error } = await guardarEnNube(supabase, user.id, next);
         if (error) {
           console.error("Error guardando en Supabase:", error.message);
           setSyncError(true);
@@ -159,22 +159,18 @@ export function JaliaDataProvider({ children }: { children: ReactNode }) {
           const initial = localHasData ? local : EMPTY_DATOS;
           setDatosState(initial);
           persistLocal(initial);
-          const { error: saveError } = await supabase
-            .from("jalia_datos")
-            .upsert(datosToRow(userId, initial));
+          const { error: saveError } = await guardarEnNube(supabase, userId, initial);
           if (!saveError) limpiarSyncPendiente(userId);
           setReady(true);
           return;
         }
 
-        const cloud = rowToDatos(data);
+        const cloud = rowToDatos(data, local.empaques);
         if (localHasData && tieneSyncPendiente(userId)) {
           const merged = mergeDatos(cloud, local);
           setDatosState(merged);
           persistLocal(merged);
-          const { error: saveError } = await supabase
-            .from("jalia_datos")
-            .upsert(datosToRow(userId, merged));
+          const { error: saveError } = await guardarEnNube(supabase, userId, merged);
           if (saveError) {
             console.error("Error guardando en Supabase:", saveError.message);
             setSyncError(true);
@@ -185,9 +181,7 @@ export function JaliaDataProvider({ children }: { children: ReactNode }) {
         } else if (isCloudEmpty(cloud) && localHasData) {
           setDatosState(local);
           persistLocal(local);
-          const { error: saveError } = await supabase
-            .from("jalia_datos")
-            .upsert(datosToRow(userId, local));
+          const { error: saveError } = await guardarEnNube(supabase, userId, local);
           if (!saveError) limpiarSyncPendiente(userId);
         } else {
           setDatosState(cloud);
@@ -229,7 +223,10 @@ export function JaliaDataProvider({ children }: { children: ReactNode }) {
         },
         (payload) => {
           applyingRemoteRef.current = true;
-          const remote = rowToDatos(payload.new as Record<string, unknown>);
+          const remote = rowToDatos(
+            payload.new as Record<string, unknown>,
+            datosRef.current.empaques,
+          );
           const next = tieneSyncPendiente(user.id)
             ? mergeDatos(remote, datosRef.current)
             : remote;

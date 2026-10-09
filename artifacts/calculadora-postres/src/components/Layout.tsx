@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutGrid,
   Package,
+  Gift,
   PlusCircle,
   ChefHat,
   FileText,
@@ -33,6 +34,7 @@ const navItems = [
   { href: "/cartera", label: "Cartera", icon: Wallet, shortLabel: "Cartera" },
   { href: "/lista-compras", label: "Lista de compras", icon: ShoppingCart, shortLabel: "Compras" },
   { href: "/ingredientes", label: "Ingredientes", icon: Package, shortLabel: "Insumos" },
+  { href: "/empaques", label: "Empaques", icon: Gift, shortLabel: "Empaques" },
   { href: "/nueva-receta", label: "Nueva Receta", icon: PlusCircle, shortLabel: "Nueva" },
 ];
 
@@ -51,6 +53,7 @@ const mobileMoreItems = [
   navItems[3],
   navItems[5],
   navItems[6],
+  navItems[7],
   ...navBottom,
 ];
 

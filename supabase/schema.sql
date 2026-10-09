@@ -12,6 +12,9 @@ create table if not exists public.jalia_datos (
   updated_at timestamptz not null default now()
 );
 
+alter table public.jalia_datos
+  add column if not exists empaques jsonb not null default '[]'::jsonb;
+
 alter table public.jalia_datos enable row level security;
 
 create policy "jalia_select_own"

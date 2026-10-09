@@ -8,6 +8,7 @@ import { JaliaDataProvider, useJaliaData } from "@/contexts/jalia-data-context";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
 import Ingredientes from "@/pages/Ingredientes";
+import Empaques from "@/pages/Empaques";
 import NuevaReceta from "@/pages/NuevaReceta";
 import RecetaDetalle from "@/pages/RecetaDetalle";
 import Cotizaciones from "@/pages/Cotizaciones";
@@ -37,6 +38,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/ingredientes" component={Ingredientes} />
+        <Route path="/empaques" component={Empaques} />
         <Route path="/nueva-receta" component={NuevaReceta} />
         <Route path="/receta/:id" component={RecetaDetalle} />
         <Route path="/cotizaciones" component={Cotizaciones} />

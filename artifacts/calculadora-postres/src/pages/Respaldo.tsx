@@ -20,6 +20,7 @@ import { STORAGE_KEYS, type JaliaDatos } from "@/lib/jalia-store";
 const LLAVES = [
   { key: STORAGE_KEYS.recetas, label: "Recetas", emoji: "🍰", field: "recetas" as const },
   { key: STORAGE_KEYS.ingredientes, label: "Ingredientes", emoji: "🧈", field: "ingredientes" as const },
+  { key: STORAGE_KEYS.empaques, label: "Empaques", emoji: "📦", field: "empaques" as const },
   { key: STORAGE_KEYS.cotizaciones, label: "Cotizaciones", emoji: "📋", field: "cotizaciones" as const },
   { key: STORAGE_KEYS.ventas, label: "Ventas (caja)", emoji: "💰", field: "ventas" as const },
   { key: STORAGE_KEYS.listaCompras, label: "Lista de compras", emoji: "🛒", field: "listaCompras" as const },
@@ -47,6 +48,7 @@ function jsonToDatos(json: Record<string, unknown>): JaliaDatos | null {
 
   return {
     ingredientes: read(STORAGE_KEYS.ingredientes, "ingredientes"),
+    empaques: read(STORAGE_KEYS.empaques, "empaques"),
     recetas: read(STORAGE_KEYS.recetas, "recetas"),
     cotizaciones: read(STORAGE_KEYS.cotizaciones, "cotizaciones"),
     ventas: read(STORAGE_KEYS.ventas, "ventas"),
@@ -74,6 +76,7 @@ export default function Respaldo() {
       negocio: "JALIA",
       datos: {
         [STORAGE_KEYS.ingredientes]: datos.ingredientes,
+        [STORAGE_KEYS.empaques]: datos.empaques,
         [STORAGE_KEYS.recetas]: datos.recetas,
         [STORAGE_KEYS.cotizaciones]: datos.cotizaciones,
         [STORAGE_KEYS.ventas]: datos.ventas,

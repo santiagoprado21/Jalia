@@ -12,6 +12,19 @@ export interface IngredienteReceta {
   cantidad: number;
 }
 
+export interface Empaque {
+  id: string;
+  nombre: string;
+  /** Costo de una unidad del empaque. */
+  costo: number;
+}
+
+export interface EmpaqueReceta {
+  empaqueId: string;
+  /** Unidades de este empaque por porción. */
+  cantidad: number;
+}
+
 export interface Receta {
   id: string;
   nombre: string;
@@ -20,8 +33,11 @@ export interface Receta {
   ingredientesReceta: IngredienteReceta[];
   costosFijos: number;
   costosVariables?: number;
-  /** Costo de un empaque; se multiplica por las porciones. */
+  /** Costo de empaque por porción (derivado de `empaques` + `costoEmpaqueOtro`); se multiplica por las porciones. */
   costoEmpaque?: number;
+  empaques?: EmpaqueReceta[];
+  /** Costo de empaque por porción escrito a mano, fuera del catálogo. */
+  costoEmpaqueOtro?: number;
   margenGanancia: number;
   margenMayorista?: number;
   /** Precios fijados a mano; si faltan se usa el sugerido. */

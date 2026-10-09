@@ -5,7 +5,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ArrowLeft, Plus, Trash2, Calculator, Pencil } from "lucide-react";
 import { Link } from "wouter";
-import { useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
+import {
+  useRecetas,
+  useIngredientes,
+  useEmpaques,
+  calcularPrecio,
+  costoEmpaquePorPorcion,
+  empaquesDeReceta,
+} from "@/hooks/use-data";
 import { formatMoneda } from "@/lib/moneda";
 import { useToast } from "@/hooks/use-toast";
 import { CATEGORIAS } from "@/types";
@@ -13,6 +20,7 @@ import type { VarianteReceta } from "@/types";
 import VariantesEditor from "@/components/VariantesEditor";
 import PrecioDesglose from "@/components/PrecioDesglose";
 import PrecioVentaCard from "@/components/PrecioVentaCard";
+import EmpaquesRecetaCard from "@/components/EmpaquesRecetaCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,7 +54,13 @@ const schema = z.object({
   porciones: z.coerce.number().min(1, "Debe producir al menos 1 porcion"),
   costosFijos: z.coerce.number().min(0),
   costosVariables: z.coerce.number().min(0),
-  costoEmpaque: z.coerce.number().min(0),
+  empaques: z.array(
+    z.object({
+      empaqueId: z.string().min(1, "Selecciona un empaque"),
+      cantidad: z.coerce.number().positive("Cantidad invalida"),
+    })
+  ),
+  costoEmpaqueOtro: z.coerce.number().min(0),
   margenGanancia: z.coerce.number().min(0).max(1000),
   margenMayorista: z.coerce.number().min(0).max(1000),
   precioVentaDetal: precioOpcional,
@@ -66,12 +80,14 @@ export default function RecetaDetalle() {
   const [, setLocation] = useLocation();
   const { getReceta, actualizarReceta, eliminarReceta } = useRecetas();
   const { ingredientes } = useIngredientes();
+  const { empaques: catalogoEmpaques } = useEmpaques();
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const receta = getReceta(params.id);
   const [variantes, setVariantes] = useState<VarianteReceta[]>(receta?.variantes ?? []);
+  const empaquesIniciales = empaquesDeReceta(receta ?? {});
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -82,7 +98,8 @@ export default function RecetaDetalle() {
           porciones: receta.porciones,
           costosFijos: receta.costosFijos,
           costosVariables: receta.costosVariables ?? 0,
-          costoEmpaque: receta.costoEmpaque ?? 0,
+          empaques: empaquesIniciales.empaques,
+          costoEmpaqueOtro: empaquesIniciales.otro,
           margenGanancia: receta.margenGanancia,
           margenMayorista: receta.margenMayorista ?? 0,
           precioVentaDetal: receta.precioVentaDetal,
@@ -95,7 +112,8 @@ export default function RecetaDetalle() {
           porciones: 1,
           costosFijos: 0,
           costosVariables: 0,
-          costoEmpaque: 0,
+          empaques: [],
+          costoEmpaqueOtro: 0,
           margenGanancia: 30,
           margenMayorista: 0,
           ingredientesReceta: [],
@@ -129,6 +147,7 @@ export default function RecetaDetalle() {
   }
 
   const values = form.watch();
+  const costoEmpaque = costoEmpaquePorPorcion(values.empaques, Number(values.costoEmpaqueOtro) || 0, catalogoEmpaques);
 
   const calcLive = () => {
     const partial = {
@@ -139,7 +158,7 @@ export default function RecetaDetalle() {
       ingredientesReceta: values.ingredientesReceta,
       costosFijos: values.costosFijos || 0,
       costosVariables: values.costosVariables || 0,
-      costoEmpaque: values.costoEmpaque || 0,
+      costoEmpaque,
       margenGanancia: values.margenGanancia || 0,
       margenMayorista: values.margenMayorista || 0,
       fechaCreacion: receta.fechaCreacion,
@@ -155,12 +174,16 @@ export default function RecetaDetalle() {
     ingredientesReceta: values.ingredientesReceta,
     costosFijos: values.costosFijos || 0,
     costosVariables: values.costosVariables || 0,
-    costoEmpaque: values.costoEmpaque || 0,
+    costoEmpaque: editing ? costoEmpaque : receta.costoEmpaque ?? 0,
     margenGanancia: values.margenGanancia || 0,
   };
 
   function onSubmit(values: FormValues) {
-    actualizarReceta(receta.id, { ...values, variantes });
+    actualizarReceta(receta.id, {
+      ...values,
+      costoEmpaque: costoEmpaquePorPorcion(values.empaques, values.costoEmpaqueOtro, catalogoEmpaques),
+      variantes,
+    });
     toast({
       title: "✅ Cambios guardados",
       description: `"${values.nombre}" se actualizó correctamente.`,
@@ -401,6 +424,14 @@ export default function RecetaDetalle() {
                 disabled={!editing}
               />
 
+              <EmpaquesRecetaCard
+                control={form.control}
+                porciones={(editing ? values.porciones : receta.porciones) || 1}
+                costoTotal={calc.costoEmpaque}
+                mostrarOtro={empaquesIniciales.otro > 0}
+                disabled={!editing}
+              />
+
               {/* Costs & margin */}
               <Card>
                 <CardHeader>
@@ -455,35 +486,6 @@ export default function RecetaDetalle() {
                       )}
                     />
                   </div>
-                  <FormField
-                    control={form.control}
-                    name="costoEmpaque"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Costo de cada empaque ($)</FormLabel>
-                        <p className="text-xs text-muted-foreground -mt-1">
-                          Caja, bolsa o vasito para una porción
-                          {calc.costoEmpaque > 0 && (
-                            <>
-                              {" · "}× {(editing ? values.porciones : receta.porciones) || 1} porciones ={" "}
-                              <span className="font-medium text-foreground">{formatMoneda(calc.costoEmpaque)}</span>
-                            </>
-                          )}
-                        </p>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            disabled={!editing}
-                            data-testid="input-costo-empaque"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}

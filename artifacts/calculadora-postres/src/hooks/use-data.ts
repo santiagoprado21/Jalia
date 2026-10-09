@@ -8,6 +8,8 @@ import type {
   VentaDiaria,
   ItemListaCompra,
   Consignacion,
+  Empaque,
+  EmpaqueReceta,
   FormaPago,
 } from "@/types";
 import { redondearPrecio } from "@/lib/moneda";
@@ -105,6 +107,72 @@ export function useIngredientes() {
   );
 
   return { ingredientes, agregarIngrediente, actualizarIngrediente, eliminarIngrediente };
+}
+
+/** Empaques de la receta + empaque manual; las recetas viejas solo tienen `costoEmpaque`. */
+export function empaquesDeReceta(receta: Pick<Receta, "empaques" | "costoEmpaque" | "costoEmpaqueOtro">) {
+  return receta.empaques
+    ? { empaques: receta.empaques, otro: receta.costoEmpaqueOtro ?? 0 }
+    : { empaques: [] as EmpaqueReceta[], otro: receta.costoEmpaque ?? 0 };
+}
+
+export function costoEmpaquePorPorcion(
+  empaquesReceta: EmpaqueReceta[],
+  otro: number,
+  catalogo: Empaque[],
+) {
+  return empaquesReceta.reduce((sum, er) => {
+    const emp = catalogo.find((e) => e.id === er.empaqueId);
+    return sum + (emp ? emp.costo * (er.cantidad || 0) : 0);
+  }, otro || 0);
+}
+
+function recalcularEmpaqueRecetas(recetas: Receta[], catalogo: Empaque[]): Receta[] {
+  return recetas.map((r) => {
+    if (!r.empaques?.length) return r;
+    const empaques = r.empaques.filter((er) => catalogo.some((e) => e.id === er.empaqueId));
+    return {
+      ...r,
+      empaques,
+      costoEmpaque: costoEmpaquePorPorcion(empaques, r.costoEmpaqueOtro ?? 0, catalogo),
+    };
+  });
+}
+
+export function useEmpaques() {
+  const { empaques } = useJaliaDatos();
+  const setDatos = useJaliaSetDatos();
+
+  const agregarEmpaque = useCallback(
+    (data: Omit<Empaque, "id">) => {
+      const nuevo: Empaque = { ...data, id: crypto.randomUUID() };
+      setDatos((prev) => ({ ...prev, empaques: [...prev.empaques, nuevo] }));
+      return nuevo;
+    },
+    [setDatos],
+  );
+
+  const actualizarEmpaque = useCallback(
+    (id: string, data: Omit<Empaque, "id">) => {
+      setDatos((prev) => {
+        const catalogo = prev.empaques.map((e) => (e.id === id ? { ...e, ...data } : e));
+        return { ...prev, empaques: catalogo, recetas: recalcularEmpaqueRecetas(prev.recetas, catalogo) };
+      });
+    },
+    [setDatos],
+  );
+
+  const eliminarEmpaque = useCallback(
+    (id: string) => {
+      setDatos((prev) => {
+        const catalogo = prev.empaques.filter((e) => e.id !== id);
+        return { ...prev, empaques: catalogo, recetas: recalcularEmpaqueRecetas(prev.recetas, catalogo) };
+      });
+    },
+    [setDatos],
+  );
+
+  return { empaques, agregarEmpaque, actualizarEmpaque, eliminarEmpaque };
 }
 
 export function useRecetas() {
