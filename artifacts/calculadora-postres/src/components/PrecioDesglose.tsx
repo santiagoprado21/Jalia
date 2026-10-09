@@ -6,10 +6,24 @@ interface Props {
   calc: CalcReceta;
   margenGanancia: number;
   margenMayorista?: number;
+  precioFinalDetal?: number;
+  precioFinalMayorista?: number;
   testIdPrefix?: string;
 }
 
-export default function PrecioDesglose({ calc, margenGanancia, margenMayorista, testIdPrefix = "calc" }: Props) {
+export default function PrecioDesglose({
+  calc,
+  margenGanancia,
+  margenMayorista,
+  precioFinalDetal,
+  precioFinalMayorista,
+  testIdPrefix = "calc",
+}: Props) {
+  const preciosFinales = [
+    { label: "Detal", precio: precioFinalDetal },
+    { label: "Mayorista", precio: precioFinalMayorista },
+  ].filter((p): p is { label: string; precio: number } => (p.precio ?? 0) > 0);
+
   return (
     <div className="space-y-3">
       <div className="flex justify-between text-sm">
@@ -77,6 +91,26 @@ export default function PrecioDesglose({ calc, margenGanancia, margenMayorista, 
               {formatMoneda(calc.gananciaMayorista ?? 0)}
             </span>
           </div>
+        </>
+      )}
+      {preciosFinales.length > 0 && (
+        <>
+          <Separator />
+          <p className="text-xs font-medium text-muted-foreground">Tu precio de venta</p>
+          {preciosFinales.map(({ label, precio }) => {
+            const ganancia = precio - calc.costoPorPorcion;
+            return (
+              <div key={label} className="flex justify-between text-sm" data-testid={`${testIdPrefix}-precio-final-${label.toLowerCase()}`}>
+                <span className="text-muted-foreground">{label}</span>
+                <span className="font-semibold text-foreground">
+                  {formatMoneda(precio)}{" "}
+                  <span className={`text-xs font-normal ${ganancia >= 0 ? "text-green-700" : "text-destructive"}`}>
+                    ({ganancia >= 0 ? "+" : ""}{formatMoneda(ganancia)} c/u)
+                  </span>
+                </span>
+              </div>
+            );
+          })}
         </>
       )}
       <div className="bg-background rounded-lg p-3 mt-2">

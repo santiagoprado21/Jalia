@@ -24,6 +24,9 @@ export interface Receta {
   costoEmpaque?: number;
   margenGanancia: number;
   margenMayorista?: number;
+  /** Precios fijados a mano; si faltan se usa el sugerido. */
+  precioVentaDetal?: number;
+  precioVentaMayorista?: number;
   fechaCreacion: string;
   variantes?: VarianteReceta[];
 }
@@ -72,6 +75,8 @@ export interface VarianteReceta {
 
 export type FormaPago = "efectivo" | "nequi" | "llave";
 
+export type TipoPrecio = "detal" | "mayorista";
+
 export const FORMAS_PAGO: { value: FormaPago; label: string }[] = [
   { value: "efectivo", label: "Efectivo" },
   { value: "nequi", label: "Nequi" },
@@ -83,6 +88,7 @@ export interface ItemVenta {
   cantidad: number;
   precioVenta: number;
   formaPago?: FormaPago;
+  tipoPrecio?: TipoPrecio;
 }
 
 export interface VentaDiaria {

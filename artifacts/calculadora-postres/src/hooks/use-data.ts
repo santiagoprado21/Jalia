@@ -501,6 +501,27 @@ export function calcularPrecio(receta: Receta, ingredientes: Ingrediente[]): Cal
   );
 }
 
+export interface PreciosVenta {
+  calc: CalcReceta;
+  detal: number;
+  mayorista: number;
+  detalManual: boolean;
+  mayoristaManual: boolean;
+}
+
+export function preciosVenta(receta: Receta, ingredientes: Ingrediente[]): PreciosVenta {
+  const calc = calcularPrecio(receta, ingredientes);
+  const detalManual = (receta.precioVentaDetal ?? 0) > 0;
+  const mayoristaManual = (receta.precioVentaMayorista ?? 0) > 0;
+  const detal = detalManual ? receta.precioVentaDetal! : calc.precioVentaSugerido;
+  const mayorista = mayoristaManual
+    ? receta.precioVentaMayorista!
+    : calc.precioMayorista && calc.precioMayorista > 0
+      ? calc.precioMayorista
+      : detal;
+  return { calc, detal, mayorista, detalManual, mayoristaManual };
+}
+
 export function generarListaComprasDesdeRecetas(
   recetas: Receta[],
   recetaIds: string[],

@@ -12,6 +12,7 @@ import { CATEGORIAS } from "@/types";
 import type { VarianteReceta } from "@/types";
 import VariantesEditor from "@/components/VariantesEditor";
 import PrecioDesglose from "@/components/PrecioDesglose";
+import PrecioVentaCard from "@/components/PrecioVentaCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +25,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const precioOpcional = z.preprocess(
+  (v) => (v === "" || v === null || v === undefined ? undefined : Number(v)),
+  z.number().min(0, "Precio inválido").optional(),
+);
+
 const schema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio"),
   categoria: z.string().min(1, "Selecciona una categoria"),
@@ -33,6 +39,8 @@ const schema = z.object({
   costoEmpaque: z.coerce.number().min(0),
   margenGanancia: z.coerce.number().min(0).max(1000),
   margenMayorista: z.coerce.number().min(0).max(1000),
+  precioVentaDetal: precioOpcional,
+  precioVentaMayorista: precioOpcional,
   ingredientesReceta: z.array(
     z.object({
       ingredienteId: z.string().min(1, "Selecciona un ingrediente"),
@@ -468,6 +476,12 @@ export default function NuevaReceta() {
                 </CardContent>
               </Card>
 
+              <PrecioVentaCard
+                control={form.control}
+                sugeridoDetal={calc.precioVentaSugerido}
+                sugeridoMayorista={calc.precioMayorista}
+              />
+
               <Button
                 type="submit"
                 className="w-full gap-2"
@@ -493,6 +507,8 @@ export default function NuevaReceta() {
                       calc={calc}
                       margenGanancia={values.margenGanancia || 0}
                       margenMayorista={values.margenMayorista || 0}
+                      precioFinalDetal={Number(values.precioVentaDetal) || undefined}
+                      precioFinalMayorista={Number(values.precioVentaMayorista) || undefined}
                     />
                     <p className="text-xs text-muted-foreground pt-3">
                       El precio se actualiza automáticamente mientras llenas el formulario.

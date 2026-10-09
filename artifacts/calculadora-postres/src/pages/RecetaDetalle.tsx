@@ -12,6 +12,7 @@ import { CATEGORIAS } from "@/types";
 import type { VarianteReceta } from "@/types";
 import VariantesEditor from "@/components/VariantesEditor";
 import PrecioDesglose from "@/components/PrecioDesglose";
+import PrecioVentaCard from "@/components/PrecioVentaCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +35,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+const precioOpcional = z.preprocess(
+  (v) => (v === "" || v === null || v === undefined ? undefined : Number(v)),
+  z.number().min(0, "Precio inválido").optional(),
+);
+
 const schema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio"),
   categoria: z.string().min(1, "Selecciona una categoria"),
@@ -43,6 +49,8 @@ const schema = z.object({
   costoEmpaque: z.coerce.number().min(0),
   margenGanancia: z.coerce.number().min(0).max(1000),
   margenMayorista: z.coerce.number().min(0).max(1000),
+  precioVentaDetal: precioOpcional,
+  precioVentaMayorista: precioOpcional,
   ingredientesReceta: z.array(
     z.object({
       ingredienteId: z.string().min(1, "Selecciona un ingrediente"),
@@ -77,6 +85,8 @@ export default function RecetaDetalle() {
           costoEmpaque: receta.costoEmpaque ?? 0,
           margenGanancia: receta.margenGanancia,
           margenMayorista: receta.margenMayorista ?? 0,
+          precioVentaDetal: receta.precioVentaDetal,
+          precioVentaMayorista: receta.precioVentaMayorista,
           ingredientesReceta: receta.ingredientesReceta,
         }
       : {
@@ -527,6 +537,13 @@ export default function RecetaDetalle() {
                 </CardContent>
               </Card>
 
+              <PrecioVentaCard
+                control={form.control}
+                sugeridoDetal={calc.precioVentaSugerido}
+                sugeridoMayorista={calc.precioMayorista}
+                disabled={!editing}
+              />
+
               {editing && (
                 <div className="flex gap-3">
                   <Button
@@ -565,6 +582,8 @@ export default function RecetaDetalle() {
                       calc={calc}
                       margenGanancia={editing ? (values.margenGanancia || 0) : receta.margenGanancia}
                       margenMayorista={editing ? (values.margenMayorista || 0) : (receta.margenMayorista ?? 0)}
+                      precioFinalDetal={editing ? Number(values.precioVentaDetal) || undefined : receta.precioVentaDetal}
+                      precioFinalMayorista={editing ? Number(values.precioVentaMayorista) || undefined : receta.precioVentaMayorista}
                     />
                   </CardContent>
                 </Card>

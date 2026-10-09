@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ArrowLeft, Plus, Trash2, FileDown } from "lucide-react";
 import { Link } from "wouter";
-import { useCotizaciones, useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
+import { useCotizaciones, useRecetas, useIngredientes, preciosVenta } from "@/hooks/use-data";
 import { formatMoneda } from "@/lib/moneda";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,12 +59,12 @@ export default function NuevaCotizacion() {
   const resumen = values.items.map((item) => {
     const receta = recetas.find((r) => r.id === item.recetaId);
     if (!receta || !item.cantidad) return null;
-    const calc = calcularPrecio(receta, ingredientes);
+    const precio = preciosVenta(receta, ingredientes).detal;
     return {
       nombre: receta.nombre,
-      precioUnit: calc.precioVentaSugerido,
+      precioUnit: precio,
       cantidad: item.cantidad,
-      subtotal: calc.precioVentaSugerido * item.cantidad,
+      subtotal: precio * item.cantidad,
     };
   }).filter(Boolean) as { nombre: string; precioUnit: number; cantidad: number; subtotal: number }[];
 
@@ -210,10 +210,10 @@ export default function NuevaCotizacion() {
                                 </FormControl>
                                 <SelectContent>
                                   {recetas.map((r) => {
-                                    const c = calcularPrecio(r, ingredientes);
+                                    const precio = preciosVenta(r, ingredientes).detal;
                                     return (
                                       <SelectItem key={r.id} value={r.id}>
-                                        {r.nombre} — {formatMoneda(c.precioVentaSugerido)}/pieza
+                                        {r.nombre} — {formatMoneda(precio)}/pieza
                                       </SelectItem>
                                     );
                                   })}

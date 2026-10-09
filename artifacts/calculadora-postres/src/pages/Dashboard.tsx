@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { PlusCircle, TrendingUp, DollarSign, Package, FileDown, FileSpreadsheet, Search, X } from "lucide-react";
 import { motion } from "framer-motion";
-import { useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
+import { useRecetas, useIngredientes, preciosVenta } from "@/hooks/use-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -31,10 +31,16 @@ export default function Dashboard() {
   const [exportando, setExportando] = useState<"pdf" | "excel" | null>(null);
   const [busqueda, setBusqueda] = useState("");
 
-  const recetasConCalculo = recetas.map((r) => ({
-    receta: r,
-    calc: calcularPrecio(r, ingredientes),
-  }));
+  const recetasConCalculo = recetas.map((r) => {
+    const precios = preciosVenta(r, ingredientes);
+    const porciones = r.porciones > 0 ? r.porciones : 1;
+    return {
+      receta: r,
+      calc: precios.calc,
+      precios,
+      ganancia: (precios.detal - precios.calc.costoPorPorcion) * porciones,
+    };
+  });
 
   const termino = normalizar(busqueda);
   const recetasFiltradas = termino
@@ -119,15 +125,15 @@ export default function Dashboard() {
             {
               icon: DollarSign,
               label: "Precio promedio",
-              value: recetasConCalculo.reduce((s, { calc }) => s + calc.precioVentaSugerido, 0) / recetasConCalculo.length,
-              display: formatMoneda(recetasConCalculo.reduce((s, { calc }) => s + calc.precioVentaSugerido, 0) / recetasConCalculo.length),
+              value: recetasConCalculo.reduce((s, { precios }) => s + precios.detal, 0) / recetasConCalculo.length,
+              display: formatMoneda(recetasConCalculo.reduce((s, { precios }) => s + precios.detal, 0) / recetasConCalculo.length),
               testId: "stat-precio-promedio",
             },
             {
               icon: TrendingUp,
               label: "Ganancia total estimada",
-              value: recetasConCalculo.reduce((s, { calc }) => s + calc.gananciaTotal, 0),
-              display: formatMoneda(recetasConCalculo.reduce((s, { calc }) => s + calc.gananciaTotal, 0)),
+              value: recetasConCalculo.reduce((s, { ganancia }) => s + ganancia, 0),
+              display: formatMoneda(recetasConCalculo.reduce((s, { ganancia }) => s + ganancia, 0)),
               testId: "stat-ganancia-total",
             },
           ].map(({ icon: Icon, label, display, testId }) => (
@@ -220,7 +226,12 @@ export default function Dashboard() {
       {/* Recipe cards */}
       {recetasFiltradas.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {recetasFiltradas.map(({ receta, calc }, index) => (
+          {recetasFiltradas.map(({ receta, calc, precios, ganancia }, index) => {
+            const mostrarMayorista = precios.mayoristaManual || (calc.precioMayorista ?? 0) > 0;
+            const margenReal = calc.costoPorPorcion > 0
+              ? Math.round(((precios.detal - calc.costoPorPorcion) / calc.costoPorPorcion) * 100)
+              : receta.margenGanancia;
+            return (
             <motion.div
               key={receta.id}
               initial={{ opacity: 0, y: 16 }}
@@ -253,7 +264,7 @@ export default function Dashboard() {
                       </div>
                     </CardHeader>
                     <CardContent className="pt-2">
-                      <div className={`grid gap-3 ${calc.precioMayorista ? "grid-cols-3" : "grid-cols-2"}`}>
+                      <div className={`grid gap-3 ${mostrarMayorista ? "grid-cols-3" : "grid-cols-2"}`}>
                         <div className="bg-muted/60 rounded-lg p-3">
                           <p className="text-xs text-muted-foreground mb-0.5">Costo / porcion</p>
                           <p
@@ -269,27 +280,31 @@ export default function Dashboard() {
                             className="font-semibold text-sm text-primary"
                             data-testid={`text-precio-${receta.id}`}
                           >
-                            {formatMoneda(calc.precioVentaSugerido)}
+                            {formatMoneda(precios.detal)}
                           </p>
                         </div>
-                        {calc.precioMayorista && calc.precioMayorista > 0 && (
+                        {mostrarMayorista && (
                           <div className="bg-blue-50 rounded-lg p-3">
                             <p className="text-xs text-muted-foreground mb-0.5">Mayorista</p>
                             <p className="font-semibold text-sm text-blue-700">
-                              {formatMoneda(calc.precioMayorista)}
+                              {formatMoneda(precios.mayorista)}
                             </p>
                           </div>
                         )}
                       </div>
                       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Margen: {receta.margenGanancia}%</span>
-                        <span>Ganancia: {formatMoneda(calc.gananciaTotal)}</span>
+                        <span>
+                          Margen: {margenReal}%
+                          {!precios.detalManual && " (sugerido)"}
+                        </span>
+                        <span>Ganancia: {formatMoneda(ganancia)}</span>
                       </div>
                     </CardContent>
                   </Card>
               </Link>
             </motion.div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

@@ -3,10 +3,11 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
-import { useVentas, useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
+import { useVentas, useRecetas, useIngredientes, preciosVenta } from "@/hooks/use-data";
 import { formatFecha } from "@/lib/semana";
 import { formatMoneda, redondearPrecio } from "@/lib/moneda";
-import { FORMAS_PAGO } from "@/types";
+import { cn } from "@/lib/utils";
+import { FORMAS_PAGO, type TipoPrecio } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +30,7 @@ const schema = z.object({
       cantidad: z.coerce.number().min(1, "Mínimo 1"),
       precioVenta: z.coerce.number().min(0, "Precio inválido"),
       formaPago: z.enum(["efectivo", "nequi", "llave"]).default("efectivo"),
+      tipoPrecio: z.enum(["detal", "mayorista"]).default("detal"),
     })
   ).min(1, "Agrega al menos un postre vendido"),
 });
@@ -53,27 +55,34 @@ export default function RegistrarVenta() {
           items: ventaExistente.items.map((item) => ({
             ...item,
             formaPago: item.formaPago ?? "efectivo",
+            tipoPrecio: item.tipoPrecio ?? "detal",
           })),
         }
       : {
           notas: "",
-          items: [{ recetaId: "", cantidad: 1, precioVenta: 0, formaPago: "efectivo" }],
+          items: [{ recetaId: "", cantidad: 1, precioVenta: 0, formaPago: "efectivo", tipoPrecio: "detal" }],
         },
   });
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
   const values = form.watch();
 
-  function getPrecioSugerido(recetaId: string) {
+  function getPrecioLista(recetaId: string, tipo: TipoPrecio) {
     const receta = recetas.find((r) => r.id === recetaId);
     if (!receta) return 0;
-    return calcularPrecio(receta, ingredientes).precioVentaSugerido;
+    const precios = preciosVenta(receta, ingredientes);
+    return tipo === "mayorista" ? precios.mayorista : precios.detal;
   }
 
   function getCostoPorcion(recetaId: string) {
     const receta = recetas.find((r) => r.id === recetaId);
     if (!receta) return 0;
-    return calcularPrecio(receta, ingredientes).costoPorPorcion;
+    return preciosVenta(receta, ingredientes).calc.costoPorPorcion;
+  }
+
+  function aplicarPrecioLista(index: number, recetaId: string, tipo: TipoPrecio) {
+    const precio = getPrecioLista(recetaId, tipo);
+    if (precio > 0) form.setValue(`items.${index}.precioVenta`, precio);
   }
 
   const resumen = values.items.map((item) => {
@@ -105,6 +114,7 @@ export default function RegistrarVenta() {
         ...item,
         precioVenta: redondearPrecio(item.precioVenta),
         formaPago: item.formaPago ?? "efectivo",
+        tipoPrecio: item.tipoPrecio ?? "detal",
       })),
       notas: values.notas,
     });
@@ -141,7 +151,7 @@ export default function RegistrarVenta() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => append({ recetaId: "", cantidad: 1, precioVenta: 0, formaPago: "efectivo" })}
+                    onClick={() => append({ recetaId: "", cantidad: 1, precioVenta: 0, formaPago: "efectivo", tipoPrecio: "detal" })}
                     data-testid="button-agregar-item-venta"
                     className="gap-1"
                   >
@@ -159,7 +169,8 @@ export default function RegistrarVenta() {
                     <div className="space-y-4">
                       {fields.map((field, index) => {
                         const recetaId = form.watch(`items.${index}.recetaId`);
-                        const precioSugerido = getPrecioSugerido(recetaId);
+                        const tipoPrecio = form.watch(`items.${index}.tipoPrecio`) ?? "detal";
+                        const precioLista = getPrecioLista(recetaId, tipoPrecio);
 
                         return (
                           <div key={field.id} className="p-3 bg-muted/40 rounded-xl space-y-3">
@@ -173,10 +184,7 @@ export default function RegistrarVenta() {
                                     <Select
                                       onValueChange={(v) => {
                                         f.onChange(v);
-                                        const sugerido = getPrecioSugerido(v);
-                                        if (sugerido > 0) {
-                                          form.setValue(`items.${index}.precioVenta`, sugerido);
-                                        }
+                                        aplicarPrecioLista(index, v, tipoPrecio);
                                       }}
                                       value={f.value}
                                     >
@@ -207,6 +215,33 @@ export default function RegistrarVenta() {
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
+                            <div
+                              role="radiogroup"
+                              aria-label="Tipo de precio"
+                              className="inline-flex rounded-lg border border-border bg-background p-0.5"
+                            >
+                              {(["detal", "mayorista"] as const).map((tipo) => (
+                                <button
+                                  key={tipo}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={tipoPrecio === tipo}
+                                  onClick={() => {
+                                    form.setValue(`items.${index}.tipoPrecio`, tipo);
+                                    aplicarPrecioLista(index, recetaId, tipo);
+                                  }}
+                                  data-testid={`button-tipo-precio-${tipo}-${index}`}
+                                  className={cn(
+                                    "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                                    tipoPrecio === tipo
+                                      ? "bg-primary text-primary-foreground"
+                                      : "text-muted-foreground hover:text-foreground",
+                                  )}
+                                >
+                                  {tipo === "detal" ? "Detal" : "Mayorista"}
+                                </button>
+                              ))}
+                            </div>
                             <div className="grid grid-cols-3 gap-3">
                               <FormField
                                 control={form.control}
@@ -228,9 +263,9 @@ export default function RegistrarVenta() {
                                   <FormItem>
                                     <FormLabel className="text-xs">
                                       Precio ($)
-                                      {precioSugerido > 0 && (
+                                      {precioLista > 0 && (
                                         <span className="ml-1 text-primary font-normal">
-                                          — lista: {formatMoneda(precioSugerido)}
+                                          — lista: {formatMoneda(precioLista)}
                                         </span>
                                       )}
                                     </FormLabel>
@@ -351,7 +386,7 @@ export default function RegistrarVenta() {
                       </div>
                     ))}
                     <p className="text-xs text-muted-foreground pt-1">
-                      El precio sugerido coincide con la lista de Mis Recetas.
+                      El precio de lista es el precio de venta que pusiste en cada receta (detal o mayorista).
                     </p>
                   </CardContent>
                 </Card>

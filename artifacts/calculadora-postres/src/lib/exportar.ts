@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import type { Receta, Ingrediente, Cotizacion, VentaDiaria } from "@/types";
-import { calcularPrecio } from "@/hooks/use-data";
+import { calcularPrecio, preciosVenta } from "@/hooks/use-data";
 import { formatMoneda, LOCALE } from "@/lib/moneda";
 import { formatSemana, getDiasSemana, formatMes, getFechasMes } from "@/lib/semana";
 
@@ -31,7 +31,7 @@ export function exportarPDF(recetas: Receta[], ingredientes: Ingrediente[]) {
   doc.text(`Generado el ${fecha}`, 14, 34);
 
   const rows = recetas.map((r) => {
-    const c = calcularPrecio(r, ingredientes);
+    const { calc: c, detal } = preciosVenta(r, ingredientes);
     return [
       r.nombre,
       r.categoria,
@@ -42,8 +42,8 @@ export function exportarPDF(recetas: Receta[], ingredientes: Ingrediente[]) {
       formatMoneda(c.costoEmpaque),
       formatMoneda(c.costoPorPorcion),
       `${r.margenGanancia}%`,
-      formatMoneda(c.precioVentaSugerido),
-      formatMoneda(c.gananciaTotal),
+      formatMoneda(detal),
+      formatMoneda((detal - c.costoPorPorcion) * r.porciones),
     ];
   });
 
@@ -60,7 +60,7 @@ export function exportarPDF(recetas: Receta[], ingredientes: Ingrediente[]) {
         "Empaques",
         "Costo/porc.",
         "Margen",
-        "Precio sugerido",
+        "Precio venta",
         "Ganancia total",
       ],
     ],
@@ -81,7 +81,7 @@ export function exportarPDF(recetas: Receta[], ingredientes: Ingrediente[]) {
 
 export function exportarExcel(recetas: Receta[], ingredientes: Ingrediente[]) {
   const filas = recetas.map((r) => {
-    const c = calcularPrecio(r, ingredientes);
+    const { calc: c, detal, mayorista } = preciosVenta(r, ingredientes);
     return {
       Postre: r.nombre,
       Categoria: r.categoria,
@@ -94,7 +94,9 @@ export function exportarExcel(recetas: Receta[], ingredientes: Ingrediente[]) {
       "Costo por porcion": c.costoPorPorcion,
       "Margen (%)": r.margenGanancia,
       "Precio sugerido": c.precioVentaSugerido,
-      "Ganancia total": c.gananciaTotal,
+      "Precio venta detal": detal,
+      "Precio venta mayorista": mayorista,
+      "Ganancia total": (detal - c.costoPorPorcion) * r.porciones,
     };
   });
 
@@ -112,6 +114,8 @@ export function exportarExcel(recetas: Receta[], ingredientes: Ingrediente[]) {
     { wch: 16 },
     { wch: 12 },
     { wch: 16 },
+    { wch: 18 },
+    { wch: 22 },
     { wch: 14 },
   ];
   hoja["!cols"] = anchos;
@@ -207,20 +211,20 @@ export function exportarCotizacionPDF(
   const rows = cotizacion.items.map((item) => {
     const receta = recetas.find((r) => r.id === item.recetaId);
     if (!receta) return ["Postre no disponible", item.cantidad.toString(), "-", "-"];
-    const calc = calcularPrecio(receta, ingredientes);
+    const precio = preciosVenta(receta, ingredientes).detal;
     return [
       receta.nombre,
       item.cantidad.toString(),
-      formatMoneda(calc.precioVentaSugerido),
-      formatMoneda(calc.precioVentaSugerido * item.cantidad),
+      formatMoneda(precio),
+      formatMoneda(precio * item.cantidad),
     ];
   });
 
   const total = cotizacion.items.reduce((sum, item) => {
     const receta = recetas.find((r) => r.id === item.recetaId);
     if (!receta) return sum;
-    const calc = calcularPrecio(receta, ingredientes);
-    return sum + calc.precioVentaSugerido * item.cantidad;
+    const precio = preciosVenta(receta, ingredientes).detal;
+    return sum + precio * item.cantidad;
   }, 0);
 
   autoTable(doc, {

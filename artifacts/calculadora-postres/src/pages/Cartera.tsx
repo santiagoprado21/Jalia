@@ -4,7 +4,7 @@ import {
   useConsignaciones,
   useRecetas,
   useIngredientes,
-  calcularPrecio,
+  preciosVenta,
 } from "@/hooks/use-data";
 import { ESTADOS_CONSIGNACION, FORMAS_PAGO, type FormaPago } from "@/types";
 import { formatMoneda, redondearPrecio } from "@/lib/moneda";
@@ -69,7 +69,7 @@ export default function Cartera() {
       telefono: "",
       recetaId: recetas[0]?.id ?? "",
       cantidadEntregada: 1,
-      precioUnitario: recetas[0] ? calcularPrecio(recetas[0], ingredientes).precioVentaSugerido : 0,
+      precioUnitario: recetas[0] ? preciosVenta(recetas[0], ingredientes).detal : 0,
       fechaEntrega: new Date().toISOString().slice(0, 10),
       notas: "",
     });
@@ -246,7 +246,7 @@ export default function Cartera() {
                   setNueva({
                     ...nueva,
                     recetaId: v,
-                    precioUnitario: receta ? calcularPrecio(receta, ingredientes).precioVentaSugerido : 0,
+                    precioUnitario: receta ? preciosVenta(receta, ingredientes).detal : 0,
                   });
                 }}
               >

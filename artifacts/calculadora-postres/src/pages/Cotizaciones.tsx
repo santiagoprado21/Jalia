@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { PlusCircle, FileText, Phone, Calendar, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
-import { useCotizaciones, useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
+import { useCotizaciones, useRecetas, useIngredientes, preciosVenta } from "@/hooks/use-data";
 import { formatMoneda, LOCALE } from "@/lib/moneda";
 import { ESTADOS_COTIZACION } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,8 @@ export default function Cotizaciones() {
     return c.items.reduce((sum, item) => {
       const receta = recetas.find((r) => r.id === item.recetaId);
       if (!receta) return sum;
-      const calc = calcularPrecio(receta, ingredientes);
-      return sum + calc.precioVentaSugerido * item.cantidad;
+      const precio = preciosVenta(receta, ingredientes).detal;
+      return sum + precio * item.cantidad;
     }, 0);
   }
 

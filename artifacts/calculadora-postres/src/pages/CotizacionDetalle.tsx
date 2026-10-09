@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useLocation, Link } from "wouter";
 import { ArrowLeft, FileDown, Trash2, CheckCircle2, Clock, Package } from "lucide-react";
-import { useCotizaciones, useRecetas, useIngredientes, calcularPrecio } from "@/hooks/use-data";
+import { useCotizaciones, useRecetas, useIngredientes, preciosVenta } from "@/hooks/use-data";
 import { formatMoneda, LOCALE } from "@/lib/moneda";
 import { ESTADOS_COTIZACION, type Cotizacion } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -51,13 +51,13 @@ export default function CotizacionDetalle() {
   const itemsConDetalle = cotizacion.items.map((item) => {
     const receta = recetas.find((r) => r.id === item.recetaId);
     if (!receta) return null;
-    const calc = calcularPrecio(receta, ingredientes);
+    const precio = preciosVenta(receta, ingredientes).detal;
     return {
       nombre: receta.nombre,
       categoria: receta.categoria,
-      precioUnit: calc.precioVentaSugerido,
+      precioUnit: precio,
       cantidad: item.cantidad,
-      subtotal: calc.precioVentaSugerido * item.cantidad,
+      subtotal: precio * item.cantidad,
     };
   }).filter(Boolean) as { nombre: string; categoria: string; precioUnit: number; cantidad: number; subtotal: number }[];
 
