@@ -40,6 +40,7 @@ const schema = z.object({
   porciones: z.coerce.number().min(1, "Debe producir al menos 1 porcion"),
   costosFijos: z.coerce.number().min(0),
   costosVariables: z.coerce.number().min(0),
+  costoEmpaque: z.coerce.number().min(0),
   margenGanancia: z.coerce.number().min(0).max(1000),
   margenMayorista: z.coerce.number().min(0).max(1000),
   ingredientesReceta: z.array(
@@ -73,6 +74,7 @@ export default function RecetaDetalle() {
           porciones: receta.porciones,
           costosFijos: receta.costosFijos,
           costosVariables: receta.costosVariables ?? 0,
+          costoEmpaque: receta.costoEmpaque ?? 0,
           margenGanancia: receta.margenGanancia,
           margenMayorista: receta.margenMayorista ?? 0,
           ingredientesReceta: receta.ingredientesReceta,
@@ -83,6 +85,7 @@ export default function RecetaDetalle() {
           porciones: 1,
           costosFijos: 0,
           costosVariables: 0,
+          costoEmpaque: 0,
           margenGanancia: 30,
           margenMayorista: 0,
           ingredientesReceta: [],
@@ -126,6 +129,7 @@ export default function RecetaDetalle() {
       ingredientesReceta: values.ingredientesReceta,
       costosFijos: values.costosFijos || 0,
       costosVariables: values.costosVariables || 0,
+      costoEmpaque: values.costoEmpaque || 0,
       margenGanancia: values.margenGanancia || 0,
       margenMayorista: values.margenMayorista || 0,
       fechaCreacion: receta.fechaCreacion,
@@ -141,6 +145,7 @@ export default function RecetaDetalle() {
     ingredientesReceta: values.ingredientesReceta,
     costosFijos: values.costosFijos || 0,
     costosVariables: values.costosVariables || 0,
+    costoEmpaque: values.costoEmpaque || 0,
     margenGanancia: values.margenGanancia || 0,
   };
 
@@ -400,7 +405,7 @@ export default function RecetaDetalle() {
                         <FormItem>
                           <FormLabel>Gastos fijos ($)</FormLabel>
                           <p className="text-xs text-muted-foreground -mt-1">
-                            Empaque, gas, luz, transporte
+                            Gas, luz, transporte
                           </p>
                           <FormControl>
                             <Input
@@ -440,6 +445,35 @@ export default function RecetaDetalle() {
                       )}
                     />
                   </div>
+                  <FormField
+                    control={form.control}
+                    name="costoEmpaque"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Costo de cada empaque ($)</FormLabel>
+                        <p className="text-xs text-muted-foreground -mt-1">
+                          Caja, bolsa o vasito para una porción
+                          {calc.costoEmpaque > 0 && (
+                            <>
+                              {" · "}× {(editing ? values.porciones : receta.porciones) || 1} porciones ={" "}
+                              <span className="font-medium text-foreground">{formatMoneda(calc.costoEmpaque)}</span>
+                            </>
+                          )}
+                        </p>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            disabled={!editing}
+                            data-testid="input-costo-empaque"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}

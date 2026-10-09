@@ -347,6 +347,10 @@ export default function VariantesEditor({ variantes, onChange, ingredientes, rec
                                   <span className="text-muted-foreground">Gastos variables por porción</span>
                                   <span className="font-medium">{formatMoneda((recetaBase.costosVariables ?? 0) / basePorciones)}</span>
                                 </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Empaque por porción</span>
+                                  <span className="font-medium">{formatMoneda(recetaBase.costoEmpaque ?? 0)}</span>
+                                </div>
                                 <Separator className="my-1" />
                                 <div className="flex justify-between">
                                   <span className="text-muted-foreground">Costo total por porción</span>

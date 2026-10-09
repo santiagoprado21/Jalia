@@ -30,6 +30,12 @@ export default function PrecioDesglose({ calc, margenGanancia, margenMayorista, 
           {formatMoneda(calc.costosVariables)}
         </span>
       </div>
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Empaques</span>
+        <span className="font-medium" data-testid={`${testIdPrefix}-costo-empaque`}>
+          {formatMoneda(calc.costoEmpaque)}
+        </span>
+      </div>
       <Separator />
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Costo total</span>

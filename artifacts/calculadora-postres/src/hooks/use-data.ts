@@ -13,9 +13,11 @@ import type {
 import { redondearPrecio } from "@/lib/moneda";
 
 function costosReceta(receta: Receta) {
+  const porciones = receta.porciones > 0 ? receta.porciones : 1;
   return {
     costosFijos: receta.costosFijos ?? 0,
     costosVariables: receta.costosVariables ?? 0,
+    costoEmpaque: (receta.costoEmpaque ?? 0) * porciones,
   };
 }
 
@@ -23,11 +25,12 @@ function construirCalc(
   costoIngredientes: number,
   costosFijos: number,
   costosVariables: number,
+  costoEmpaque: number,
   porciones: number,
   margenGanancia: number,
   margenMayorista?: number,
 ): CalcReceta {
-  const costoTotal = costoIngredientes + costosFijos + costosVariables;
+  const costoTotal = costoIngredientes + costosFijos + costosVariables + costoEmpaque;
   const porcionesSafe = porciones > 0 ? porciones : 1;
   const costoPorPorcion = redondearPrecio(costoTotal / porcionesSafe);
   const precioVentaSugerido = redondearPrecio(costoPorPorcion * (1 + margenGanancia / 100));
@@ -46,6 +49,7 @@ function construirCalc(
     costoIngredientes: redondearPrecio(costoIngredientes),
     costosFijos: redondearPrecio(costosFijos),
     costosVariables: redondearPrecio(costosVariables),
+    costoEmpaque: redondearPrecio(costoEmpaque),
     costoTotal: redondearPrecio(costoTotal),
     costoPorPorcion,
     precioVentaSugerido,
@@ -450,7 +454,7 @@ export function calcularPrecioVariante(
 ): CalcReceta {
   const basePorciones = receta.porciones > 0 ? receta.porciones : 1;
   const extraPorciones = porcionesVariante && porcionesVariante > 0 ? porcionesVariante : basePorciones;
-  const { costosFijos, costosVariables } = costosReceta(receta);
+  const { costosFijos, costosVariables, costoEmpaque } = costosReceta(receta);
 
   const baseCostoIng = receta.ingredientesReceta.reduce((sum, ir) => {
     const ing = ingredientes.find((i) => i.id === ir.ingredienteId);
@@ -471,6 +475,7 @@ export function calcularPrecioVariante(
     costoIngredientes,
     costosFijos,
     costosVariables,
+    costoEmpaque,
     basePorciones,
     receta.margenGanancia,
     receta.margenMayorista,
@@ -478,7 +483,7 @@ export function calcularPrecioVariante(
 }
 
 export function calcularPrecio(receta: Receta, ingredientes: Ingrediente[]): CalcReceta {
-  const { costosFijos, costosVariables } = costosReceta(receta);
+  const { costosFijos, costosVariables, costoEmpaque } = costosReceta(receta);
   const costoIngredientes = receta.ingredientesReceta.reduce((sum, ir) => {
     const ing = ingredientes.find((i) => i.id === ir.ingredienteId);
     if (!ing) return sum;
@@ -489,6 +494,7 @@ export function calcularPrecio(receta: Receta, ingredientes: Ingrediente[]): Cal
     costoIngredientes,
     costosFijos,
     costosVariables,
+    costoEmpaque,
     receta.porciones,
     receta.margenGanancia,
     receta.margenMayorista,

@@ -20,6 +20,8 @@ export interface Receta {
   ingredientesReceta: IngredienteReceta[];
   costosFijos: number;
   costosVariables?: number;
+  /** Costo de un empaque; se multiplica por las porciones. */
+  costoEmpaque?: number;
   margenGanancia: number;
   margenMayorista?: number;
   fechaCreacion: string;
@@ -30,6 +32,7 @@ export interface CalcReceta {
   costoIngredientes: number;
   costosFijos: number;
   costosVariables: number;
+  costoEmpaque: number;
   costoTotal: number;
   costoPorPorcion: number;
   precioVentaSugerido: number;
